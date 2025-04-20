@@ -1,10 +1,21 @@
-
 body {
-    background-color: #f0f0f0;
-    text-align: center;
-    font-family: 'Courier New', Courier, monospace;
+  background: #333;
+  margin: 0;
+  padding: 20px;
 }
-canvas {
-    border: 2px solid black;
-    margin-top: 20px;
+
+#game {
+  position: relative;
+  width: 512px;
+  height: 512px;
+  background: #88c070;  /* 仮の芝生色の背景 */
+  margin: 0 auto;
+  border: 2px solid #000;
+  image-rendering: pixelated;  /* ドット絵がぼやけないように */
+  overflow: hidden;
+}
+
+#player {
+  position: absolute;
+  image-rendering: pixelated;  /* 拡大・移動してもドットがにじまないように */
 }
