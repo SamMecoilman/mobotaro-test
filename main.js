@@ -14,23 +14,26 @@ const enemy = document.getElementById("enemy");
 const hpEl = document.getElementById("hp");
 const atkEl = document.getElementById("atk");
 
+function snapToGrid(value) {
+  return Math.round(value / 32) * 32;
+}
+
 function updateUI() {
   hpEl.textContent = hp;
   atkEl.textContent = atk;
 }
 
 function updatePosition() {
-  const speed = 32;
   let newX = x;
   let newY = y;
-  if (keys.ArrowUp) { newY -= speed; direction = "back"; }
-  if (keys.ArrowDown) { newY += speed; direction = "front"; }
-  if (keys.ArrowLeft) { newX -= speed; direction = "left"; }
-  if (keys.ArrowRight) { newX += speed; direction = "right"; }
+  if (keys.ArrowUp) { newY -= 32; direction = "back"; }
+  if (keys.ArrowDown) { newY += 32; direction = "front"; }
+  if (keys.ArrowLeft) { newX -= 32; direction = "left"; }
+  if (keys.ArrowRight) { newX += 32; direction = "right"; }
 
   if (!checkCollision(newX, newY)) {
-    x = newX;
-    y = newY;
+    x = snapToGrid(newX);
+    y = snapToGrid(newY);
   }
 
   player.style.left = x + "px";
@@ -40,7 +43,7 @@ function updatePosition() {
 function checkCollision(newX, newY) {
   const ex = parseInt(enemy.style.left);
   const ey = parseInt(enemy.style.top);
-  return Math.abs(newX - ex) < 32 && Math.abs(newY - ey) < 48;
+  return newX === ex && newY === ey;
 }
 
 function showDamage(amount, target) {
@@ -57,15 +60,12 @@ function showDamage(amount, target) {
 function checkHit() {
   const ex = parseInt(enemy.style.left);
   const ey = parseInt(enemy.style.top);
-
-  const dx = ex - x;
-  const dy = ey - y;
-
   let hit = false;
-  if (direction === "front" && dy === 32 && Math.abs(dx) < 32) hit = true;
-  else if (direction === "back" && dy === -32 && Math.abs(dx) < 32) hit = true;
-  else if (direction === "left" && dx === -32 && Math.abs(dy) < 48) hit = true;
-  else if (direction === "right" && dx === 32 && Math.abs(dy) < 48) hit = true;
+
+  if (direction === "front" && ex === x && ey === y + 32) hit = true;
+  else if (direction === "back" && ex === x && ey === y - 32) hit = true;
+  else if (direction === "left" && ex === x - 32 && ey === y) hit = true;
+  else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
 
   if (hit) {
     showDamage(atk, enemy);
