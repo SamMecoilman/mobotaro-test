@@ -1,10 +1,45 @@
-
 body {
-    background-color: #f0f0f0;
-    text-align: center;
-    font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
 }
-canvas {
-    border: 2px solid black;
-    margin-top: 20px;
+#menu {
+  padding-top: 100px;
+}
+#menu button {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 30px;
+  font-size: 20px;
+}
+#map {
+  position: relative;
+  width: 512px;
+  height: 512px;
+  background: #444;
+  margin: auto;
+  overflow: hidden;
+  border: 2px solid white;
+  image-rendering: pixelated;
+}
+#player, #enemy {
+  position: absolute;
+  width: 32px;
+  height: 48px;
+}
+#ui {
+  margin: 10px auto;
+}
+.damage {
+  position: absolute;
+  color: red;
+  font-weight: bold;
+  pointer-events: none;
+  animation: floatUp 1s ease-out forwards;
+}
+@keyframes floatUp {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-30px); }
 }
