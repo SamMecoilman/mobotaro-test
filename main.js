@@ -1,6 +1,6 @@
 
-const menuBgm = new Audio("audio/bgm.mp3");
-const gameBgm = new Audio("audio/bgm.mp3");
+const menuBgm = new Audio("audio/menu_bgm.mp3");
+const gameBgm = new Audio("audio/game_bgm.mp3");
 menuBgm.loop = true;
 menuBgm.volume = 0.3;
 gameBgm.loop = true;
@@ -94,10 +94,8 @@ function startGame() {
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
   menuBgm.pause();
+  gameBgm.currentTime = 0;
   gameBgm.play();
-  updateUI();
-  requestAnimationFrame(animate);
 }
 
-// start menu BGM
 menuBgm.play();
