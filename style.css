@@ -1,21 +1,19 @@
 body {
-  background: #333;
+  background: #222;
   margin: 0;
   padding: 20px;
 }
-
 #game {
   position: relative;
   width: 512px;
   height: 512px;
-  background: #88c070;  /* 仮の芝生色の背景 */
+  background: #aaa;
   margin: 0 auto;
   border: 2px solid #000;
-  image-rendering: pixelated;  /* ドット絵がぼやけないように */
+  image-rendering: pixelated;
   overflow: hidden;
 }
-
 #player {
   position: absolute;
-  image-rendering: pixelated;  /* 拡大・移動してもドットがにじまないように */
+  image-rendering: pixelated;
 }
