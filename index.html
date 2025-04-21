@@ -1,34 +1,50 @@
-
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja"> <!-- HTMLの文書型宣言。言語は日本語 -->
 <head>
-  <meta charset="UTF-8">
-  <title>モブ太郎伝説 - テスト統合版</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8"> <!-- 文字コードをUTF-8に指定 -->
+  <title>モブ太郎伝説 - テスト統合版</title> <!-- ブラウザのタブに表示されるタイトル -->
+  <link rel="stylesheet" href="style.css"> <!-- 外部CSSファイルを読み込み -->
 </head>
 <body>
+
+  <!-- メニュー画面（ゲームタイトルとスタートボタン） -->
   <div id="menu">
-  <div id="version">ver.0.7 - 操作・衝突・音量確認版</div>
-    <h1>モブ太郎伝説</h1>
-    <button onclick="startGame()">入学する</button>
-    <button onclick="startGame()">再登校</button>
+    <div id="version">ver.0.7 - 操作・衝突・音量確認版</div> <!-- バージョン表示欄 -->
+    <h1>モブ太郎伝説</h1> <!-- ゲームタイトル -->
+    <button onclick="startGame()">入学する</button> <!-- ゲーム開始ボタン①（新規） -->
+    <button onclick="startGame()">再登校</button> <!-- ゲーム開始ボタン②（再開） -->
   </div>
+
+  <!-- ゲーム画面（初期状態は非表示） -->
   <div id="game" style="display: none;">
+    <!-- ステータス表示UI（HPと攻撃力） -->
     <div id="ui">
-      <div>HP: <span id="hp">100</span></div>
-      <div>ATK: <span id="atk">15</span></div>
+      <div>HP: <span id="hp">100</span></div> <!-- HP表示（初期値100） -->
+      <div>ATK: <span id="atk">15</span></div> <!-- 攻撃力表示（初期値15） -->
     </div>
+
+    <!-- ゲームマップ部分 -->
     <div id="map">
+      <!-- プレイヤーキャラの画像 -->
       <img id="player" src="images/mob_front_frame_2.png" alt="Mob">
-      <img id="enemy" src="images/enemy.png" alt="Enemy" style="top: 240px; left: 304px;" style="top: 200px; left: 300px;">
+      
+      <!-- 敵キャラの画像（style属性を正しく統合） -->
+      <img id="enemy" src="images/enemy.png" alt="Enemy" style="top: 240px; left: 304px; position: absolute;">
     </div>
   </div>
+
+  <!-- メインのJavaScriptファイルを読み込み -->
   <script src="main.js"></script>
 
+  <!-- 設定パネル（初期は非表示） -->
   <div id="configPanel" style="display:none; position:fixed; top:20px; right:20px; background:#222; border:1px solid #444; padding:10px; color:white; z-index:1000;">
-    <h3>設定</h3>
+    <h3>設定</h3> <!-- 設定パネルの見出し -->
+    
+    <!-- BGM音量調整スライダー -->
     <label>BGM 音量</label>
     <input type="range" min="0" max="1" step="0.05" value="0.3" id="bgmVolume">
+    <!-- 範囲は0〜1、初期値0.3、0.05刻みで調整可能 -->
   </div>
+
 </body>
 </html>

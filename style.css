@@ -1,53 +1,75 @@
+/* 🌑 全体の基本設定 */
 body {
-  margin: 0;
-  background: #111;
-  color: white;
-  font-family: sans-serif;
-  text-align: center;
-}
-#menu {
-  padding-top: 100px;
-}
-#menu button {
-  display: block;
-  margin: 10px auto;
-  padding: 10px 30px;
-  font-size: 20px;
-}
-#map {
-  background: url("images/test_grid_map.png");
-  background-size: cover;
-  background-repeat: no-repeat;
-  position: relative;
-  width: 512px;
-  height: 512px;
-  margin: auto;
-  overflow: hidden;
-  border: 2px solid white;
-  image-rendering: pixelated;
-}
-#player, #enemy {
-  position: absolute;
-  width: 32px;
-  height: 48px;
-}
-#ui {
-  margin: 10px auto;
-}
-.damage {
-  position: absolute;
-  color: red;
-  font-weight: bold;
-  pointer-events: none;
-  animation: floatUp 1s ease-out forwards;
-}
-@keyframes floatUp {
-  from { opacity: 1; transform: translateY(0); }
-  to { opacity: 0; transform: translateY(-30px); }
+  margin: 0;                      /* ページ全体の余白をなくす */
+  background: #111;              /* 背景を暗めの黒に設定 */
+  color: white;                  /* 文字色を白に設定 */
+  font-family: sans-serif;       /* フォントをサンセリフ体に指定（ゴシック系） */
+  text-align: center;            /* テキストを中央揃え */
 }
 
+/* 🎮 メニュー画面のレイアウト調整 */
+#menu {
+  padding-top: 100px;            /* 上方向に100pxの余白（中央寄せ） */
+}
+
+/* メニュー内のボタンデザイン */
+#menu button {
+  display: block;                /* ボタンをブロック要素にして縦並びに */
+  margin: 10px auto;             /* 上下に10pxの余白をとり、左右は自動で中央揃え */
+  padding: 10px 30px;            /* 内側の余白：上下10px・左右30px */
+  font-size: 20px;               /* 文字サイズをやや大きめに */
+}
+
+/* 🗺️ ゲームマップの見た目 */
+#map {
+  background: url("images/test_grid_map.png"); /* 背景画像を指定（タイルマップ） */
+  background-size: cover;         /* 背景画像をマップのサイズに合わせて拡大 */
+  background-repeat: no-repeat;   /* 背景画像の繰り返しを無効にする */
+  position: relative;             /* 子要素のposition:absoluteの基準にする */
+  width: 512px;
+  height: 512px;                  /* 正方形マップサイズ（512×512） */
+  margin: auto;                   /* 中央寄せ（左右） */
+  overflow: hidden;               /* 要素外にはみ出たものを隠す */
+  border: 2px solid white;        /* 白い枠線をマップの周囲に追加 */
+  image-rendering: pixelated;     /* ドット絵のぼやけ防止（ピクセル表示） */
+}
+
+/* 🎮 キャラクター画像のサイズ・位置 */
+#player, #enemy {
+  position: absolute;             /* マップ内の座標指定ができるようにする */
+  width: 32px;                    /* 横幅（1タイル分） */
+  height: 48px;                   /* 縦幅（キャラ高さ） */
+}
+
+/* 💬 ステータスUIの余白設定 */
+#ui {
+  margin: 10px auto;              /* 上下10pxの余白＋中央揃え */
+}
+
+/* 💥 ダメージ数値の見た目とアニメーション設定 */
+.damage {
+  position: absolute;             /* 画面内の座標指定を可能に */
+  color: red;                     /* 赤文字で表示 */
+  font-weight: bold;             /* 太字で表示 */
+  pointer-events: none;          /* マウスイベントを無効に（クリック無視） */
+  animation: floatUp 1s ease-out forwards; /* 下から上にフェードするアニメ演出を付与 */
+}
+
+/* 💨 ダメージ表示のアニメーション */
+@keyframes floatUp {
+  from {
+    opacity: 1;                   /* 透明度100% */
+    transform: translateY(0);     /* 初期位置 */
+  }
+  to {
+    opacity: 0;                   /* 完全に透明に */
+    transform: translateY(-30px); /* 上に30px移動して消える */
+  }
+}
+
+/* 🔖 バージョン表示のデザイン */
 #version {
-  margin-top: 30px;
-  font-size: 14px;
-  color: #ccc;
+  margin-top: 30px;              /* 上に30pxの余白 */
+  font-size: 14px;               /* 小さめの文字サイズ */
+  color: #ccc;                   /* 薄いグレー文字で控えめな印象に */
 }
