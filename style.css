@@ -1,0 +1,53 @@
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+}
+#menu {
+  padding-top: 100px;
+}
+#menu button {
+  display: block;
+  margin: 10px auto;
+  padding: 10px 30px;
+  font-size: 20px;
+}
+#map {
+  background: url("images/test_grid_map.png");
+  background-size: cover;
+  background-repeat: no-repeat;
+  position: relative;
+  width: 512px;
+  height: 512px;
+  margin: auto;
+  overflow: hidden;
+  border: 2px solid white;
+  image-rendering: pixelated;
+}
+#player, #enemy {
+  position: absolute;
+  width: 32px;
+  height: 48px;
+}
+#ui {
+  margin: 10px auto;
+}
+.damage {
+  position: absolute;
+  color: red;
+  font-weight: bold;
+  pointer-events: none;
+  animation: floatUp 1s ease-out forwards;
+}
+@keyframes floatUp {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-30px); }
+}
+
+#version {
+  margin-top: 30px;
+  font-size: 14px;
+  color: #ccc;
+}
