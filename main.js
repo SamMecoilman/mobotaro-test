@@ -55,7 +55,19 @@ function showDamage(amount, target) {
 }
 
 function checkHit() {
-  if (checkCollision(x, y)) {
+  const ex = parseInt(enemy.style.left);
+  const ey = parseInt(enemy.style.top);
+
+  const dx = ex - x;
+  const dy = ey - y;
+
+  let hit = false;
+  if (direction === "front" && dy === 32 && Math.abs(dx) < 32) hit = true;
+  else if (direction === "back" && dy === -32 && Math.abs(dx) < 32) hit = true;
+  else if (direction === "left" && dx === -32 && Math.abs(dy) < 48) hit = true;
+  else if (direction === "right" && dx === 32 && Math.abs(dy) < 48) hit = true;
+
+  if (hit) {
     showDamage(atk, enemy);
   }
 }
