@@ -1,12 +1,21 @@
 (() => {
   const directions = ["front", "back", "left", "right"];
-  const frameCount = 3;
+  const frames = { front: [], back: [], left: [], right: [] };
   const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
   let direction = "front";
-  let frameIndex = 0;
+  let frameIndex = 1;
   let x = 240, y = 240;
   const speed = 2;
+  const game = document.getElementById("game");
   const player = document.getElementById("player");
+
+  directions.forEach(dir => {
+    for (let i = 1; i <= 3; i++) {
+      const img = new Image();
+      img.src = "images/mob_" + dir + "_frame_" + i + ".png";
+      frames[dir].push(img);
+    }
+  });
 
   function updatePosition() {
     if (keys.ArrowUp) { direction = "back"; y -= speed; }
@@ -20,9 +29,8 @@
 
   function animate() {
     updatePosition();
-    frameIndex = (frameIndex + 1) % frameCount;
-    const framePath = `images/mob_${direction}_frame_${frameIndex + 1}.png`;
-    player.src = framePath;
+    frameIndex = (frameIndex + 1) % 3;
+    player.src = frames[direction][frameIndex].src;
     setTimeout(() => requestAnimationFrame(animate), 150);
   }
 
