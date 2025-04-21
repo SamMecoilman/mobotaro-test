@@ -1,6 +1,9 @@
 
 const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
+const adachiBgm = new Audio("audio/adachi_bgm.mp3");
+adachiBgm.loop = true;
+adachiBgm.volume = 0.3;
 menuBgm.loop = true;
 menuBgm.volume = 0.3;
 gameBgm.loop = true;
@@ -114,4 +117,23 @@ function startGame() {
   gameBgm.play();
   updateUI();
   requestAnimationFrame(animate);
+}
+
+
+function spawnAdachi() {
+  const adachi = document.createElement("div");
+  adachi.id = "adachi";
+  adachi.textContent = "👨‍🏫 足立先生、降臨";
+  adachi.style.position = "absolute";
+  adachi.style.left = "320px";
+  adachi.style.top = "64px";
+  adachi.style.color = "white";
+  adachi.style.background = "rgba(150,0,0,0.7)";
+  adachi.style.padding = "4px 8px";
+  adachi.style.zIndex = "999";
+  document.getElementById("map").appendChild(adachi);
+
+  gameBgm.pause();
+  adachiBgm.currentTime = 0;
+  adachiBgm.play();
 }
