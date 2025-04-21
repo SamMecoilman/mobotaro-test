@@ -63,6 +63,8 @@ const atkEl = document.getElementById("atk");
 const enemies = [];
 let adachiExists = false;
 let adachiHp = 100;
+let lastEnemyMoveTime = Date.now();
+let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
 
 // 📏 グリッド単位で位置を揃える（32px単位）
 function snapToGrid(value) {
@@ -102,7 +104,6 @@ function showDamage(amount, target) {
   document.body.appendChild(dmg);
   setTimeout(() => dmg.remove(), 1000);
 }
-
 // 🔍 攻撃が命中するかチェック（プレイヤー vs 全敵＋足立先生）
 function checkHit() {
   for (let i = 0; i < enemies.length; i++) {
@@ -116,11 +117,21 @@ function checkHit() {
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
       showDamage(atk, enemy);
+
+      // 💬 吹き出し削除（もし表示中なら）
+      const bubbleId = enemy.dataset.bubbleId;
+      if (bubbleId) {
+        const bubble = document.querySelector(`[data-owner-id="${bubbleId}"]`);
+        if (bubble) bubble.remove();
+      }
+
       enemy.remove();
       enemies.splice(i, 1);
       return;
     }
   }
+
+  // 👨‍🏫 足立先生の攻撃処理（そのまま）
   const adachi = document.getElementById("adachi");
   if (adachi) {
     const ax = snapToGrid(parseInt(adachi.style.left));
@@ -145,23 +156,62 @@ function checkHit() {
 // 🎞️ 歩行アニメーション処理
 function animate() {
   updatePosition();
+  const now = Date.now();
+  if (now - lastEnemyMoveTime > enemyMoveInterval) {
+    moveEnemies();
+    lastEnemyMoveTime = now;
+    enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000);
+  }
   frameIndex = (frameIndex + 1) % 3;
   player.src = `images/mob_${direction}_frame_${frameIndex + 1}.png`;
-  moveEnemies();
   setTimeout(() => requestAnimationFrame(animate), 150);
 }
 
 // 🧟 敵モブをランダムに動かす
 function moveEnemies() {
+  const directions = [
+    { dx: 0, dy: -32 }, // 上
+    { dx: 0, dy: 32 },  // 下
+    { dx: -32, dy: 0 }, // 左
+    { dx: 32, dy: 0 },  // 右
+    { dx: 0, dy: 0 }    // 静止
+  ];
+
   for (let enemy of enemies) {
-    const dx = [0, 32, -32, 0, 0];
-    const dy = [0, 0, 0, 32, -32];
-    const dir = Math.floor(Math.random() * dx.length);
-    const newX = snapToGrid(parseInt(enemy.style.left)) + dx[dir];
-    const newY = snapToGrid(parseInt(enemy.style.top)) + dy[dir];
+    const dir = directions[Math.floor(Math.random() * directions.length)];
+    const currentX = snapToGrid(parseInt(enemy.style.left));
+    const currentY = snapToGrid(parseInt(enemy.style.top));
+    const newX = currentX + dir.dx;
+    const newY = currentY + dir.dy;
+
     if (!isTileBlocked(newX, newY)) {
       enemy.style.left = `${newX}px`;
       enemy.style.top = `${newY}px`;
+    }
+
+    // 🎈 静止してるときだけふきだしを出す
+    if (dir.dx === 0 && dir.dy === 0) {
+      const phrases = ["…退屈", "Zzz…", "誰か来いよ", "ヒマすぎ", "やる気でない"];
+      const msg = document.createElement("div");
+      const bubbleId = `bubble-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      msg.className = "bubble";
+      msg.dataset.ownerId = bubbleId;
+      enemy.dataset.bubbleId = bubbleId;
+
+      msg.textContent = phrases[Math.floor(Math.random() * phrases.length)];
+      msg.style.position = "absolute";
+      msg.style.left = enemy.style.left;
+      msg.style.top = `${parseInt(enemy.style.top) - 32}px`;
+      msg.style.color = "white";
+      msg.style.background = "rgba(0,0,0,0.7)";
+      msg.style.padding = "2px 6px";
+      msg.style.borderRadius = "6px";
+      msg.style.fontSize = "12px";
+      msg.style.zIndex = "999";
+      msg.style.pointerEvents = "none";
+
+      document.getElementById("map").appendChild(msg);
+      setTimeout(() => msg.remove(), 1500);
     }
   }
 }
