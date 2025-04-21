@@ -6,6 +6,22 @@ menuBgm.volume = 0.3;
 gameBgm.loop = true;
 gameBgm.volume = 0.3;
 
+document.addEventListener("DOMContentLoaded", () => {
+  menuBgm.play();
+  document.getElementById("bgmVolume").addEventListener("input", e => {
+    const vol = parseFloat(e.target.value);
+    menuBgm.volume = vol;
+    gameBgm.volume = vol;
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      const panel = document.getElementById("configPanel");
+      panel.style.display = panel.style.display === "none" ? "block" : "none";
+    }
+  });
+});
+
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x = 240, y = 240;
 let direction = "front";
@@ -96,6 +112,6 @@ function startGame() {
   menuBgm.pause();
   gameBgm.currentTime = 0;
   gameBgm.play();
+  updateUI();
+  requestAnimationFrame(animate);
 }
-
-menuBgm.play();
