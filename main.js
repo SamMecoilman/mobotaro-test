@@ -1,7 +1,10 @@
 
-const bgm = new Audio("audio/bgm.mp3");
-bgm.loop = true;
-bgm.volume = 0.3;
+const menuBgm = new Audio("audio/bgm.mp3");
+const gameBgm = new Audio("audio/bgm.mp3");
+menuBgm.loop = true;
+menuBgm.volume = 0.3;
+gameBgm.loop = true;
+gameBgm.volume = 0.3;
 
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x = 240, y = 240;
@@ -41,8 +44,8 @@ function updatePosition() {
 }
 
 function checkCollision(newX, newY) {
-  const ex = parseInt(enemy.style.left);
-  const ey = parseInt(enemy.style.top);
+  const ex = snapToGrid(parseInt(enemy.style.left));
+  const ey = snapToGrid(parseInt(enemy.style.top));
   return newX === ex && newY === ey;
 }
 
@@ -58,8 +61,8 @@ function showDamage(amount, target) {
 }
 
 function checkHit() {
-  const ex = parseInt(enemy.style.left);
-  const ey = parseInt(enemy.style.top);
+  const ex = snapToGrid(parseInt(enemy.style.left));
+  const ey = snapToGrid(parseInt(enemy.style.top));
   let hit = false;
 
   if (direction === "front" && ex === x && ey === y + 32) hit = true;
@@ -90,7 +93,11 @@ window.addEventListener("keyup", e => {
 function startGame() {
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
-  bgm.play();
+  menuBgm.pause();
+  gameBgm.play();
   updateUI();
   requestAnimationFrame(animate);
 }
+
+// start menu BGM
+menuBgm.play();
