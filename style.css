@@ -73,3 +73,22 @@ body {
   font-size: 14px;               /* 小さめの文字サイズ */
   color: #ccc;                   /* 薄いグレー文字で控えめな印象に */
 }
+
+/* 💬 敵のセリフふきだし */
+.bubble {
+  font-family: sans-serif;
+  animation: bubble-fade 1.5s ease-out forwards;
+  pointer-events: none;           /* マウス無効化 */
+}
+
+/* 💨 フキダシのフェードアニメーション */
+@keyframes bubble-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
