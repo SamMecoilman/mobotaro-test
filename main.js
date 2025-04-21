@@ -34,16 +34,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-let x = 240, y = 240; // 初期座標
-let direction = "front"; // 初期の向き
-let frameIndex = 0; // アニメーションフレーム
-let hp = 100, atk = 15; // ステータス
+let x = 240, y = 240;
+let direction = "front";
+let frameIndex = 0;
+let hp = 100, atk = 15;
 
-// DOM要素の取得
 const player = document.getElementById("player");
-const enemy = document.getElementById("enemy");
 const hpEl = document.getElementById("hp");
 const atkEl = document.getElementById("atk");
+
+const enemies = [];
+let adachiExists = false;
 
 // 📏 グリッド単位で位置を揃える（32px単位）
 function snapToGrid(value) {
@@ -61,28 +62,28 @@ function updatePosition() {
   let newX = x;
   let newY = y;
 
-  // 押されたキーに応じて方向と移動先を決定
   if (keys.ArrowUp) { newY -= 32; direction = "back"; }
   if (keys.ArrowDown) { newY += 32; direction = "front"; }
   if (keys.ArrowLeft) { newX -= 32; direction = "left"; }
   if (keys.ArrowRight) { newX += 32; direction = "right"; }
 
-  // 移動先が敵と重ならないなら移動実行
   if (!checkCollision(newX, newY)) {
     x = snapToGrid(newX);
     y = snapToGrid(newY);
   }
 
-  // 実際のDOM位置を更新
   player.style.left = x + "px";
   player.style.top = y + "px";
 }
 
-// 🚫 敵との衝突判定
+// 🚫 敵との衝突判定（プレイヤー vs 全敵）
 function checkCollision(newX, newY) {
-  const ex = snapToGrid(parseInt(enemy.style.left));
-  const ey = snapToGrid(parseInt(enemy.style.top));
-  return newX === ex && newY === ey;
+  for (let enemy of enemies) {
+    const ex = snapToGrid(parseInt(enemy.style.left));
+    const ey = snapToGrid(parseInt(enemy.style.top));
+    if (newX === ex && newY === ey) return true;
+  }
+  return false;
 }
 
 // 💥 ダメージ表示演出
@@ -94,70 +95,114 @@ function showDamage(amount, target) {
   dmg.style.left = (rect.left + 5) + "px";
   dmg.style.top = (rect.top - 20) + "px";
   document.body.appendChild(dmg);
-  setTimeout(() => dmg.remove(), 1000); // 1秒後に削除
+  setTimeout(() => dmg.remove(), 1000);
 }
 
-// 🔍 攻撃が命中するかチェック
+// 🔍 攻撃が命中するかチェック（プレイヤー vs 全敵）
 function checkHit() {
-  const ex = snapToGrid(parseInt(enemy.style.left));
-  const ey = snapToGrid(parseInt(enemy.style.top));
-  let hit = false;
-
-  // プレイヤーの向きと位置からヒット判定
-  if (direction === "front" && ex === x && ey === y + 32) hit = true;
-  else if (direction === "back" && ex === x && ey === y - 32) hit = true;
-  else if (direction === "left" && ex === x - 32 && ey === y) hit = true;
-  else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
-
-  // 命中時はダメージを表示
-  if (hit) {
-    showDamage(atk, enemy);
+  for (let i = 0; i < enemies.length; i++) {
+    const enemy = enemies[i];
+    const ex = snapToGrid(parseInt(enemy.style.left));
+    const ey = snapToGrid(parseInt(enemy.style.top));
+    let hit = false;
+    if (direction === "front" && ex === x && ey === y + 32) hit = true;
+    else if (direction === "back" && ex === x && ey === y - 32) hit = true;
+    else if (direction === "left" && ex === x - 32 && ey === y) hit = true;
+    else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
+    if (hit) {
+      showDamage(atk, enemy);
+      enemy.remove();
+      enemies.splice(i, 1);
+      return;
+    }
   }
 }
 
 // 🎞️ 歩行アニメーション処理
 function animate() {
-  updatePosition(); // 位置を更新
-  frameIndex = (frameIndex + 1) % 3; // 3フレームでループ
-  player.src = `images/mob_${direction}_frame_${frameIndex + 1}.png`; // フレーム画像切替
-  setTimeout(() => requestAnimationFrame(animate), 150); // 約150msごとに再描画
+  updatePosition();
+  frameIndex = (frameIndex + 1) % 3;
+  player.src = `images/mob_${direction}_frame_${frameIndex + 1}.png`;
+  setTimeout(() => requestAnimationFrame(animate), 150);
 }
 
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
   if (e.key.startsWith("Arrow")) keys[e.key] = true;
-  if (e.key === " ") checkHit(); // スペースで攻撃
+  if (e.key === " ") checkHit();
 });
 window.addEventListener("keyup", e => {
   if (e.key.startsWith("Arrow")) keys[e.key] = false;
 });
 
-// ▶️ ゲーム開始時の処理
-function startGame() {
-  document.getElementById("menu").style.display = "none"; // メニュー非表示
-  document.getElementById("game").style.display = "block"; // ゲーム画面表示
-  menuBgm.pause(); // メニューBGM停止
-  gameBgm.currentTime = 0;
-  gameBgm.play(); // ゲームBGM再生
-  updateUI(); // UI更新
-  requestAnimationFrame(animate); // アニメ開始
+// 🧑‍🎓 敵をランダムにリスポーンさせる（最大30体／プレイヤーと被らない）
+function spawnEnemy() {
+  if (enemies.length >= 30 || adachiExists) return;
+  const map = document.getElementById("map");
+  const maxTiles = 16;
+  let ex, ey, tries = 0;
+  do {
+    ex = Math.floor(Math.random() * maxTiles) * 32;
+    ey = Math.floor(Math.random() * maxTiles) * 32;
+    tries++;
+  } while ((ex === x && ey === y) && tries < 50);
+
+  const enemy = document.createElement("img");
+  enemy.src = "images/enemy.png";
+  enemy.className = "enemy";
+  enemy.style.position = "absolute";
+  enemy.style.left = `${ex}px`;
+  enemy.style.top = `${ey}px`;
+  enemy.style.width = "32px";
+  enemy.style.height = "48px";
+  map.appendChild(enemy);
+  enemies.push(enemy);
 }
 
-// 🧑‍🏫 レイドボス足立先生の出現処理
+// 🧑‍🏫 足立先生の出現処理（1体のみ／10秒後に消える）
 function spawnAdachi() {
+  if (adachiExists) return;
+  adachiExists = true;
+
+  const map = document.getElementById("map");
+  const maxTiles = 16;
+  let ax, ay, tries = 0;
+  do {
+    ax = Math.floor(Math.random() * maxTiles) * 32;
+    ay = Math.floor(Math.random() * maxTiles) * 32;
+    tries++;
+  } while ((ax === x && ay === y) && tries < 50);
+
   const adachi = document.createElement("div");
   adachi.id = "adachi";
   adachi.textContent = "👨‍🏫 足立先生、降臨";
   adachi.style.position = "absolute";
-  adachi.style.left = "320px";
-  adachi.style.top = "64px";
+  adachi.style.left = `${ax}px`;
+  adachi.style.top = `${ay}px`;
   adachi.style.color = "white";
   adachi.style.background = "rgba(150,0,0,0.7)";
   adachi.style.padding = "4px 8px";
   adachi.style.zIndex = "999";
-  document.getElementById("map").appendChild(adachi);
+  map.appendChild(adachi);
 
   gameBgm.pause();
   adachiBgm.currentTime = 0;
   adachiBgm.play();
+
+  setTimeout(() => {
+    adachi.remove();
+    adachiExists = false;
+  }, 10000);
+}
+
+// ▶️ ゲーム開始時の処理
+function startGame() {
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("game").style.display = "block";
+  menuBgm.pause();
+  gameBgm.currentTime = 0;
+  gameBgm.play();
+  updateUI();
+  requestAnimationFrame(animate);
+  setInterval(spawnEnemy, 1000); // 敵の定期リスポーン
 }
