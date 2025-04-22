@@ -84,9 +84,6 @@ for (var i = 0; i < players.length; i++) {
     }
 }
 
-
-
-
 function isTileBlocked(xPos, yPos) {
   const tx = xPos / 32;
   const ty = yPos / 32;
@@ -106,28 +103,35 @@ function isTileBlocked(xPos, yPos) {
   return false;
 }
 
-// 🔧 ページが読み込まれた時の初期処理
+// 🔧 ページ読み込み時のすべての初期化処理を統合
 document.addEventListener("DOMContentLoaded", () => {
+  // 音量設定
   menuBgm.play();
   document.getElementById("bgmVolume").addEventListener("input", e => {
     const vol = parseFloat(e.target.value);
     menuBgm.volume = vol;
     gameBgm.volume = vol;
   });
+
+  // ESCキーでCONFIGトグル
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
       const panel = document.getElementById("configPanel");
       panel.style.display = panel.style.display === "none" ? "block" : "none";
     }
-  // 📱 仮想ボタンに長押し対応を設定
-  bindButtonHold("btn-up", "ArrowUp"); 
+  });
+
+  // 📱 仮想コントローラーの表示判定
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  document.getElementById("mobile-controls").style.display = isMobile ? "flex" : "none";
+
+  // 📱 仮想ボタンの長押し対応（DOMContentLoaded内に正しく設置）
+  bindButtonHold("btn-up", "ArrowUp");
   bindButtonHold("btn-down", "ArrowDown");
   bindButtonHold("btn-left", "ArrowLeft");
   bindButtonHold("btn-right", "ArrowRight");
   bindButtonHold("btn-attack", " ");
-  });
 });
-
 
 
 // 📏 グリッド単位で位置を揃える（32px単位）
@@ -306,14 +310,7 @@ function moveEnemies() {
   }
 }
 
-// 🎹 キー操作で移動 or 攻撃
-window.addEventListener("keydown", e => {
-  if (e.key.startsWith("Arrow")) keys[e.key] = true;
-  if (e.key === " ") checkHit();
-});
-window.addEventListener("keyup", e => {
-  if (e.key.startsWith("Arrow")) keys[e.key] = false;
-});
+
 
 // 🧑‍🎓 敵をランダムにリスポーンさせる（最大30体／ブロック回避）
 function spawnEnemy() {
@@ -378,14 +375,13 @@ function bindButtonHold(buttonId, key) {
   btn.addEventListener("touchend", () => clearInterval(interval));
   btn.addEventListener("touchcancel", () => clearInterval(interval));
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (isMobile) {
-    document.getElementById("mobile-controls").style.display = "flex";
-  } else {
-    document.getElementById("mobile-controls").style.display = "none";
-  }
+// 🎹 キー操作で移動 or 攻撃
+window.addEventListener("keydown", e => {
+  if (e.key.startsWith("Arrow")) keys[e.key] = true;
+  if (e.key === " ") checkHit();
+});
+window.addEventListener("keyup", e => {
+  if (e.key.startsWith("Arrow")) keys[e.key] = false;
 });
 
 window.pressKey = function(key) {
