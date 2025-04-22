@@ -119,6 +119,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const panel = document.getElementById("configPanel");
       panel.style.display = panel.style.display === "none" ? "block" : "none";
     }
+  // 📱 仮想ボタンに長押し対応を設定
+  bindButtonHold("btn-up", "ArrowUp"); 
+  bindButtonHold("btn-down", "ArrowDown");
+  bindButtonHold("btn-left", "ArrowLeft");
+  bindButtonHold("btn-right", "ArrowRight");
+  bindButtonHold("btn-attack", " ");
   });
 });
 
@@ -359,6 +365,18 @@ function spawnAdachi() {
   gameBgm.pause();
   adachiBgm.currentTime = 0;
   adachiBgm.play();
+}
+
+// 📱 仮想ボタンに長押し対応を追加するユーティリティ
+function bindButtonHold(buttonId, key) {
+  let interval;
+  const btn = document.getElementById(buttonId);
+  btn.addEventListener("touchstart", () => {
+    window.pressKey(key); // 👈 既存の pressKey 関数を呼び出す
+    interval = setInterval(() => window.pressKey(key), 200); // 200msごとにキー送信
+  });
+  btn.addEventListener("touchend", () => clearInterval(interval));
+  btn.addEventListener("touchcancel", () => clearInterval(interval));
 }
 
 document.addEventListener("DOMContentLoaded", () => {
