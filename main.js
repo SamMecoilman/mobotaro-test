@@ -365,3 +365,9 @@ function startGame() {
   requestAnimationFrame(animate);
   setInterval(spawnEnemy, 1000);
 }
+
+// 📱 仮想ボタンを押した時にキーボードイベントを送る
+function pressKey(key) {
+  const event = new KeyboardEvent("keydown", { key });
+  window.dispatchEvent(event);
+}
