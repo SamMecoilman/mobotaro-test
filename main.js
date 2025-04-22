@@ -116,6 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // プレイヤー位置反映
   player.style.left = x + "px";
   player.style.top = y + "px";
+  
   // 音量設定
   menuBgm.play();
   document.getElementById("bgmVolume").addEventListener("input", e => {
