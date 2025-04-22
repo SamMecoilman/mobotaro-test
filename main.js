@@ -355,7 +355,7 @@ function spawnAdachi() {
 }
 
 // ▶️ ゲーム開始時の処理
-function startGame() {
+window.startGame = function () {
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
   menuBgm.pause();
@@ -364,7 +364,7 @@ function startGame() {
   updateUI();
   requestAnimationFrame(animate);
   setInterval(spawnEnemy, 1000);
-}
+};
 
 // 📱 仮想ボタンを押した時にキーボードイベントを送る
 function pressKey(key) {
