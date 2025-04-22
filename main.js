@@ -4,7 +4,8 @@ var myPlayerId = 0;
 
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-let x = 240, y = 240;
+const spawn = getRandomSpawnPosition();
+let x = spawn.x, y = spawn.y;
 let direction = "front";
 let frameIndex = 0;
 let deathHandled = false;
@@ -20,15 +21,18 @@ let lastEnemyMoveTime = Date.now();
 let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
 
 // 自分のプレイヤーのDOMを取得して代入
-const player = document.getElementById("player");
+let player = document.getElementById("player");
 players[myPlayerId] = {
   id: myPlayerId,
-  x: 240,
-  y: 240,
+  x: x,
+  y: y,
   hp: 100,
   maxHp: 100,
   element: player
 };
+
+player.style.left = x + "px";
+player.style.top = y + "px";
 
 // 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
 var otherPlayerImg = new Image();
@@ -140,6 +144,18 @@ function snapToGrid(value) {
   return Math.round(value / 32) * 32;
 }
 
+function getRandomSpawnPosition() {
+  const maxTiles = 16;
+  let tries = 0;
+  let px, py;
+  do {
+    px = Math.floor(Math.random() * maxTiles) * 32;
+    py = Math.floor(Math.random() * maxTiles) * 32;
+    tries++;
+  } while (isTileBlocked(px, py) && tries < 50);
+  return { x: px, y: py };
+}
+
 // 🧍 ステータスUIの表示を更新
 function updateUI() {
   hpEl.textContent = hp;
@@ -242,6 +258,9 @@ for (let i = 0; i < players.length; i++) {
     p.hp -= atk;
     showDamage(atk, p.element);
     if (p.hp <= 0) {
+      if (hp <= 0 && player) {
+        player.remove();
+      }
       p.element.remove();
       p.hp = 0;
     }
@@ -522,6 +541,31 @@ window.startGame = function () {
   gameBgm.currentTime = 0;
   gameBgm.play();
   updateUI();
+
+  // 🎲 再開時もランダムリスポーン
+  const spawn = getRandomSpawnPosition();
+  x = spawn.x;
+  y = spawn.y;
+
+  // 再作成（消えている場合）
+  if (!document.getElementById("player")) {
+    const newPlayer = document.createElement("img");
+    newPlayer.id = "player";
+    newPlayer.src = `images/mob_front_frame_1.png`;
+    newPlayer.style.position = "absolute";
+    newPlayer.style.width = "32px";
+    newPlayer.style.height = "48px";
+    document.getElementById("map").appendChild(newPlayer);
+  }
+
+  const updatedPlayer = document.getElementById("player");
+  updatedPlayer.style.left = x + "px";
+  updatedPlayer.style.top = y + "px";
+  player = updatedPlayer;
+  players[myPlayerId].element = updatedPlayer;
+  players[myPlayerId].x = x;
+  players[myPlayerId].y = y;
+
   requestAnimationFrame(animate);
   setInterval(spawnEnemy, 1000);
 };
