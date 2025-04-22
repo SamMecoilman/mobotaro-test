@@ -1,3 +1,46 @@
+// プレイヤー管理用の配列と自分のプレイヤーID
+var players = [];
+var myPlayerId = 0;
+
+// 自プレイヤー（既存のplayerオブジェクト）を配列に登録
+players[myPlayerId] = player;
+
+// 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
+var otherPlayerImg = new Image();
+otherPlayerImg.src = "img/mob_front_frame_2.png";  // 仮のプレイヤー画像
+
+// テスト用他プレイヤーを追加
+var player2 = {
+    id: 1,
+    x: 200, y: 100,         // 初期座標（例）
+    hp: 100, maxHp: 100,    // 体力
+    visible: true,
+    image: otherPlayerImg   // 表示に使う画像
+};
+var player3 = {
+    id: 2,
+    x: 250, y: 150, 
+    hp: 100, maxHp: 100,
+    visible: true,
+    image: otherPlayerImg
+};
+// players配列に追加
+players.push(player2);
+players.push(player3);
+
+// （ゲームループ内の描画処理の一部）他プレイヤーの描画
+for (var i = 0; i < players.length; i++) {
+    // 自分自身のプレイヤーは既存の描画処理で対応済みのためスキップ
+    if (i === myPlayerId) continue;
+    var p = players[i];
+    // 存在し、表示フラグがtrueかつHPが残っているプレイヤーのみ描画
+    if (p && p.visible && p.hp > 0) {
+        // プレイヤーの画像を座標(x, y)に描画
+        ctx.drawImage(p.image, p.x, p.y);
+    }
+}
+
+
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
@@ -151,6 +194,23 @@ function checkHit() {
       }
     }
   }
+  
+  // 他プレイヤーへの当たり判定 (PvP)
+  for (var i = 0; i < players.length; i++) {
+        if (i === myPlayerId) continue;  // 自分自身は判定しない
+        var target = players[i];
+        if (!target || !target.visible || target.hp <= 0) continue;
+        // プレイヤー攻撃がtargetに当たったか判定（既存ロジックと同様の条件）
+        if (/* 攻撃の当たり判定条件 (例: 距離や当たり判定範囲のチェック) */) {
+            // ダメージ計算
+            target.hp -= player.attack;  // 自プレイヤーの攻撃力分HPを減らす
+            if (target.hp <= 0) {
+                target.hp = 0;
+                target.visible = false;  // HP0になったら非表示にする
+                // （必要なら倒されたときの処理を追加: 音を鳴らす、スコア加算など）
+            }
+        }
+    }
 }
 
 // 🎞️ 歩行アニメーション処理
