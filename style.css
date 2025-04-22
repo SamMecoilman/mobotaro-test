@@ -96,14 +96,15 @@ body {
 /* 📱 モバイル用仮想ボタン */
 #mobile-controls {
   position: fixed;
-  bottom: 20px;
+  bottom: 60px; /* 👈 画面に近づける（以前は20px） */
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 10px;
   user-select: none;
+  touch-action: manipulation; /* 👈 タッチ動作を強制的にボタン化 */
 }
 
 #mobile-controls div {
@@ -113,12 +114,13 @@ body {
 }
 
 #mobile-controls button {
-  font-size: 20px;
-  padding: 10px 20px;
-  background-color: #333;
+  font-size: 28px;       /* 👈 押しやすく大きく */
+  padding: 16px 24px;    /* 👈 指のフィット感をアップ */
+  background-color: #444;
   color: white;
-  border: 1px solid #888;
-  border-radius: 8px;
+  border: 2px solid #888;
+  border-radius: 10px;
+  min-width: 64px;       /* 👈 押せないバグ回避用 */
 }
 
 @media (min-width: 600px) {
