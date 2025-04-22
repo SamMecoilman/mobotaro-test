@@ -203,22 +203,31 @@ function checkHit() {
     }
   }
   
-  // 他プレイヤーへの当たり判定 (PvP)
-  for (var i = 0; i < players.length; i++) {
-        if (i === myPlayerId) continue;  // 自分自身は判定しない
-        var target = players[i];
-        if (!target || !target.visible || target.hp <= 0) continue;
-        // プレイヤー攻撃がtargetに当たったか判定（既存ロジックと同様の条件）
-        if (/* 攻撃の当たり判定条件 (例: 距離や当たり判定範囲のチェック) */) {
-            // ダメージ計算
-            target.hp -= player.attack;  // 自プレイヤーの攻撃力分HPを減らす
-            if (target.hp <= 0) {
-                target.hp = 0;
-                target.visible = false;  // HP0になったら非表示にする
-                // （必要なら倒されたときの処理を追加: 音を鳴らす、スコア加算など）
-            }
-        }
+// PvP 判定を追加（他プレイヤーへの攻撃処理）
+for (let i = 0; i < players.length; i++) {
+  if (i === myPlayerId) continue;
+  const p = players[i];
+  if (!p || !p.hp || !p.element) continue;
+
+  const px = snapToGrid(p.x);
+  const py = snapToGrid(p.y);
+
+  let hit = false;
+  if (direction === "front" && px === x && py === y + 32) hit = true;
+  else if (direction === "back" && px === x && py === y - 32) hit = true;
+  else if (direction === "left" && px === x - 32 && py === y) hit = true;
+  else if (direction === "right" && px === x + 32 && py === y) hit = true;
+
+  if (hit) {
+    p.hp -= atk;
+    showDamage(atk, p.element);
+    if (p.hp <= 0) {
+      p.element.remove();
+      p.hp = 0;
     }
+    return;
+  }
+}
 }
 
 // 🎞️ 歩行アニメーション処理
