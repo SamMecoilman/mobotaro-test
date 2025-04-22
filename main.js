@@ -31,7 +31,7 @@ players[myPlayerId] = {
 
 // 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
 var otherPlayerImg = new Image();
-otherPlayerImg.src = "img/mob_front_frame_2.png";  // 仮のプレイヤー画像
+otherPlayerImg.src = "images/mob_front_frame_2.png";  // 仮のプレイヤー画像
 
 // テスト用他プレイヤーを追加
 var player2 = {
