@@ -4,8 +4,7 @@ var myPlayerId = 0;
 
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-const spawn = getRandomSpawnPosition();
-let x = spawn.x, y = spawn.y;
+let x, y;
 let direction = "front";
 let frameIndex = 0;
 let deathHandled = false;
@@ -110,6 +109,13 @@ function isTileBlocked(xPos, yPos) {
 
 // 🔧 ページ読み込み時のすべての初期化処理を統合
 document.addEventListener("DOMContentLoaded", () => {
+  const spawn = getRandomSpawnPosition(); // 
+  x = spawn.x;
+  y = spawn.y;
+
+  // プレイヤー位置反映
+  player.style.left = x + "px";
+  player.style.top = y + "px";
   // 音量設定
   menuBgm.play();
   document.getElementById("bgmVolume").addEventListener("input", e => {
