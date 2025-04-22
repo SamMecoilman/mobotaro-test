@@ -361,6 +361,15 @@ function spawnAdachi() {
   adachiBgm.play();
 }
 
+function pressKey(key) {
+  const downEvent = new KeyboardEvent("keydown", { key });
+  const upEvent = new KeyboardEvent("keyup", { key });
+  window.dispatchEvent(downEvent);
+  setTimeout(() => {
+    window.dispatchEvent(upEvent);
+  }, 100); // 0.1秒後に離す
+}
+
 // ▶️ ゲーム開始時の処理（HTMLのonclickから呼ばれるため、グローバル公開する必要あり）
 window.startGame = function () {
   document.getElementById("menu").style.display = "none";
@@ -372,10 +381,3 @@ window.startGame = function () {
   requestAnimationFrame(animate);
   setInterval(spawnEnemy, 1000);
 };
-
-// 📱 仮想ボタン（スマホ対応）をグローバル関数として定義
-window.pressKey = function(key) {
-  const event = new KeyboardEvent("keydown", { key });
-  window.dispatchEvent(event);
-};
-
