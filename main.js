@@ -394,37 +394,42 @@ function checkEnemyAttack() {
       updateUI();
       showDamage(10, player);
 
-      // 👇 HP0になったら即ゲームオーバー
+      // 🎯 HP0でタイトルに戻すが、alertはあとで出す
       if (hp <= 0) {
-        setTimeout(() => {
-          alert("あなたはやられた！");
-          returnToTitle(); // 👈 タイトル画面に戻る
-        }, 100); // ほんの少し遅らせてアニメーション処理と干渉しないようにする
+        setTimeout(() => returnToTitle(true), 100); // trueを渡す
         break;
       }
     }
   }
 }
 
-function returnToTitle() {
+function returnToTitle(showMessageAfter = false) {
   // 🎌 ゲーム画面を非表示、メニューを表示
   document.getElementById("game").style.display = "none";
   document.getElementById("menu").style.display = "block";
 
-  // 🔈 BGMリセット
+  // 🔈 BGM切り替え
   gameBgm.pause();
   gameBgm.currentTime = 0;
   menuBgm.currentTime = 0;
   menuBgm.play();
 
-  // 👤 プレイヤー状態リセット（必要なら）
+  // 👤 プレイヤー初期化（必要なら）
   x = 240;
   y = 240;
   hp = 100;
   updateUI();
   player.style.left = x + "px";
   player.style.top = y + "px";
+
+  // 🧠 少し遅らせてアラートを出す
+  if (showMessageAfter) {
+    setTimeout(() => {
+      alert("あなたはやられた！");
+    }, 300); // DOM更新後に出すためちょっと遅らせる
+  }
 }
+
 
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
