@@ -9,7 +9,7 @@
 
   <!-- メニュー画面（ゲームタイトルとスタートボタン） -->
   <div id="menu">
-    <div id="version">ver.0.7 - 操作・衝突・音量確認版</div> <!-- バージョン表示欄 -->
+    <div id="version">ver.0.9 - 操作・衝突・音量確認版</div> <!-- バージョン表示欄 -->
     <h1>モブ太郎伝説</h1> <!-- ゲームタイトル -->
     <button onclick="startGame()">入学する</button> <!-- ゲーム開始ボタン①（新規） -->
     <button onclick="startGame()">再登校</button> <!-- ゲーム開始ボタン②（再開） -->
@@ -30,9 +30,6 @@
     </div>
   </div>
 
-  <!-- メインのJavaScriptファイルを読み込み -->
-  <script src="main.js"></script>
-
   <!-- 設定パネル（初期は非表示） -->
   <div id="configPanel" style="display:none; position:fixed; top:20px; right:20px; background:#222; border:1px solid #444; padding:10px; color:white; z-index:1000;">
     <h3>設定</h3> <!-- 設定パネルの見出し -->
@@ -42,6 +39,19 @@
     <input type="range" min="0" max="1" step="0.01" value="0.1" id="bgmVolume">
     <!-- 範囲は0〜1、初期値0.1、0.01刻みで調整可能 -->
   </div>
-
+  <!-- 📱 モバイル用操作ボタン -->
+  <div id="mobile-controls">
+    <button onclick="pressKey('ArrowUp')">↑</button>
+    <div>
+      <button onclick="pressKey('ArrowLeft')">←</button>
+      <button onclick="pressKey(' ')">攻</button>
+      <button onclick="pressKey('ArrowRight')">→</button>
+    </div>
+    <button onclick="pressKey('ArrowDown')">↓</button>
+  </div>
+<!-- 他プレイヤー描画用の非表示キャンバス -->
+<canvas id="canvas" width="512" height="512" style="display: none;"></canvas>
+<!-- メインのJavaScriptファイルを読み込み -->
+<script src="main.js"></script>
 </body>
 </html>

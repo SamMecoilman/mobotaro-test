@@ -1,3 +1,61 @@
+// プレイヤー管理用の配列と自分のプレイヤーID
+var players = [];
+var myPlayerId = 0;
+
+// 🎮 プレイヤーの状態管理用変数
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+let x = 240, y = 240;
+let direction = "front";
+let frameIndex = 0;
+let hp = 100, atk = 15;
+
+const hpEl = document.getElementById("hp");
+const atkEl = document.getElementById("atk");
+
+const enemies = [];
+let adachiExists = false;
+let adachiHp = 100;
+let lastEnemyMoveTime = Date.now();
+let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
+
+// 自分のプレイヤーのDOMを取得して代入
+const player = document.getElementById("player");
+players[myPlayerId] = {
+  id: myPlayerId,
+  x: 240,
+  y: 240,
+  hp: 100,
+  maxHp: 100,
+  element: player
+};
+
+// 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
+var otherPlayerImg = new Image();
+otherPlayerImg.src = "img/mob_front_frame_2.png";  // 仮のプレイヤー画像
+
+// テスト用他プレイヤーを追加
+var player2 = {
+    id: 1,
+    x: 200, y: 100,         // 初期座標（例）
+    hp: 100, maxHp: 100,    // 体力
+    visible: true,
+    image: otherPlayerImg   // 表示に使う画像
+};
+var player3 = {
+    id: 2,
+    x: 250, y: 150, 
+    hp: 100, maxHp: 100,
+    visible: true,
+    image: otherPlayerImg
+};
+// players配列に追加
+players.push(player2);
+players.push(player3);
+
+// 🎨 Canvas初期化：他プレイヤー描画用
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
@@ -13,6 +71,21 @@ gameBgm.volume = 0.3;
 
 // 壁タイルの管理（将来のマップ定義と連携予定）
 const wallTiles = new Set(); // 例: wallTiles.add("5x10")
+
+// （ゲームループ内の描画処理の一部）他プレイヤーの描画
+for (var i = 0; i < players.length; i++) {
+    // 自分自身のプレイヤーは既存の描画処理で対応済みのためスキップ
+    if (i === myPlayerId) continue;
+    var p = players[i];
+    // 存在し、表示フラグがtrueかつHPが残っているプレイヤーのみ描画
+    if (p && p.visible && p.hp > 0) {
+        // プレイヤーの画像を座標(x, y)に描画
+        ctx.drawImage(p.image, p.x, p.y);
+    }
+}
+
+
+
 
 function isTileBlocked(xPos, yPos) {
   const tx = xPos / 32;
@@ -49,22 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// 🎮 プレイヤーの状態管理用変数
-const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-let x = 240, y = 240;
-let direction = "front";
-let frameIndex = 0;
-let hp = 100, atk = 15;
 
-const player = document.getElementById("player");
-const hpEl = document.getElementById("hp");
-const atkEl = document.getElementById("atk");
-
-const enemies = [];
-let adachiExists = false;
-let adachiHp = 100;
-let lastEnemyMoveTime = Date.now();
-let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
 
 // 📏 グリッド単位で位置を揃える（32px単位）
 function snapToGrid(value) {
@@ -151,6 +209,32 @@ function checkHit() {
       }
     }
   }
+  
+// PvP 判定を追加（他プレイヤーへの攻撃処理）
+for (let i = 0; i < players.length; i++) {
+  if (i === myPlayerId) continue;
+  const p = players[i];
+  if (!p || !p.hp || !p.element) continue;
+
+  const px = snapToGrid(p.x);
+  const py = snapToGrid(p.y);
+
+  let hit = false;
+  if (direction === "front" && px === x && py === y + 32) hit = true;
+  else if (direction === "back" && px === x && py === y - 32) hit = true;
+  else if (direction === "left" && px === x - 32 && py === y) hit = true;
+  else if (direction === "right" && px === x + 32 && py === y) hit = true;
+
+  if (hit) {
+    p.hp -= atk;
+    showDamage(atk, p.element);
+    if (p.hp <= 0) {
+      p.element.remove();
+      p.hp = 0;
+    }
+    return;
+  }
+}
 }
 
 // 🎞️ 歩行アニメーション処理
@@ -277,8 +361,15 @@ function spawnAdachi() {
   adachiBgm.play();
 }
 
-// ▶️ ゲーム開始時の処理
-function startGame() {
+
+// 📱 仮想ボタンを押した時にキーボードイベントを送る
+function pressKey(key) {
+  const event = new KeyboardEvent("keydown", { key });
+  window.dispatchEvent(event);
+}
+
+// ▶️ ゲーム開始時の処理（HTMLのonclickから呼ばれるため、グローバル公開する必要あり）
+window.startGame = function () {
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
   menuBgm.pause();
@@ -287,4 +378,6 @@ function startGame() {
   updateUI();
   requestAnimationFrame(animate);
   setInterval(spawnEnemy, 1000);
-}
+};
+
+
