@@ -15,7 +15,7 @@ https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe5
 - 攻撃は方向依存、HP・ATK・会心率あり
 - 複数プレイヤーで同じ敵やボスを攻撃する可能性あり
 - 機能リファレンス：https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe50U0/edit
-
+- Githubリポジトリ：https://github.com/SamMecoilman/mobotaro-test
 ---
 
 ### 【2. 今回やりたいこと】
