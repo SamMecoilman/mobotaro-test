@@ -250,6 +250,7 @@ for (let i = 0; i < players.length; i++) {
 // 🎞️ 歩行アニメーション処理
 function animate() {
   updatePosition();
+  checkEnemyAttack();
   const now = Date.now();
   if (now - lastEnemyMoveTime > enemyMoveInterval) {
     moveEnemies();
@@ -375,6 +376,27 @@ function bindButtonHold(buttonId, key) {
   btn.addEventListener("touchend", () => clearInterval(interval));
   btn.addEventListener("touchcancel", () => clearInterval(interval));
 }
+
+// 🧟 敵モブがプレイヤーに攻撃する処理
+function checkEnemyAttack() {
+  for (let enemy of enemies) {
+    const ex = snapToGrid(parseInt(enemy.style.left));
+    const ey = snapToGrid(parseInt(enemy.style.top));
+    if (ex === x && ey === y) {
+      const damage = 10; // 敵の攻撃力（仮）
+      hp -= damage;
+      if (hp < 0) hp = 0;
+      updateUI();
+      showDamage(damage, player);
+      if (hp === 0) {
+        alert("ゲームオーバー");
+        // 必要に応じてゲームオーバー処理を追加
+      }
+    }
+  }
+}
+
+
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
   if (e.key.startsWith("Arrow")) keys[e.key] = true;
