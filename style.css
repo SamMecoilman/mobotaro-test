@@ -121,8 +121,8 @@ body {
   border-radius: 8px;
 }
 
-@media (hover: none) and (pointer: coarse) {
+@media (min-width: 600px) {
   #mobile-controls {
-    display: flex;
+    display: none;
   }
 }
