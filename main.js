@@ -194,6 +194,10 @@ function checkHit() {
         if (bubble) bubble.remove();
       }
 
+      // タイマーが存在する場合は解除
+      if (enemy.moveTimer) clearTimeout(enemy.moveTimer);
+    
+      // DOMと配列から削除
       enemy.remove();
       enemies.splice(i, 1);
       return;
