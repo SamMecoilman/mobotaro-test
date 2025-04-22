@@ -406,6 +406,26 @@ function checkEnemyAttack() {
   }
 }
 
+function returnToTitle() {
+  // 🎌 ゲーム画面を非表示、メニューを表示
+  document.getElementById("game").style.display = "none";
+  document.getElementById("menu").style.display = "block";
+
+  // 🔈 BGMリセット
+  gameBgm.pause();
+  gameBgm.currentTime = 0;
+  menuBgm.currentTime = 0;
+  menuBgm.play();
+
+  // 👤 プレイヤー状態リセット（必要なら）
+  x = 240;
+  y = 240;
+  hp = 100;
+  updateUI();
+  player.style.left = x + "px";
+  player.style.top = y + "px";
+}
+
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
   if (e.key.startsWith("Arrow")) keys[e.key] = true;
