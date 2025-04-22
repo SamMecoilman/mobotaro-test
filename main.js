@@ -253,11 +253,6 @@ function animate() {
   updatePosition();
   checkEnemyAttack();
   const now = Date.now();
-  if (now - lastEnemyMoveTime > enemyMoveInterval) {
-    moveEnemies();
-    lastEnemyMoveTime = now;
-    enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000);
-  }
   frameIndex = (frameIndex + 1) % 3;
   player.src = `images/mob_${direction}_frame_${frameIndex + 1}.png`;
   setTimeout(() => requestAnimationFrame(animate), 150);
@@ -325,6 +320,7 @@ function spawnEnemy() {
     ey = Math.floor(Math.random() * maxTiles) * 32;
     tries++;
   } while ((isTileBlocked(ex, ey) || (ex === x && ey === y)) && tries < 50);
+
   const enemy = document.createElement("img");
   enemy.src = "images/enemy.png";
   enemy.className = "enemy";
@@ -335,7 +331,61 @@ function spawnEnemy() {
   enemy.style.height = "48px";
   map.appendChild(enemy);
   enemies.push(enemy);
+
+  // 🎯 モブごとに独立した移動ループを開始
+  const directions = [
+    { dx: 0, dy: -32 },
+    { dx: 0, dy: 32 },
+    { dx: -32, dy: 0 },
+    { dx: 32, dy: 0 },
+    { dx: 0, dy: 0 }
+  ];
+
+  function moveThisEnemy() {
+    const dir = directions[Math.floor(Math.random() * directions.length)];
+    const currentX = snapToGrid(parseInt(enemy.style.left));
+    const currentY = snapToGrid(parseInt(enemy.style.top));
+    const newX = currentX + dir.dx;
+    const newY = currentY + dir.dy;
+
+    if (!isTileBlocked(newX, newY)) {
+      enemy.style.left = `${newX}px`;
+      enemy.style.top = `${newY}px`;
+    }
+
+    // 静止してたらふきだし表示
+    if (dir.dx === 0 && dir.dy === 0) {
+      const phrases = ["…退屈", "Zzz…", "誰か来いよ", "ヒマすぎ", "やる気でない"];
+      const msg = document.createElement("div");
+      const bubbleId = `bubble-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      msg.className = "bubble";
+      msg.dataset.ownerId = bubbleId;
+      enemy.dataset.bubbleId = bubbleId;
+
+      msg.textContent = phrases[Math.floor(Math.random() * phrases.length)];
+      msg.style.position = "absolute";
+      msg.style.left = enemy.style.left;
+      msg.style.top = `${parseInt(enemy.style.top) - 32}px`;
+      msg.style.color = "white";
+      msg.style.background = "rgba(0,0,0,0.7)";
+      msg.style.padding = "2px 6px";
+      msg.style.borderRadius = "6px";
+      msg.style.fontSize = "12px";
+      msg.style.zIndex = "999";
+      msg.style.pointerEvents = "none";
+
+      document.getElementById("map").appendChild(msg);
+      setTimeout(() => msg.remove(), 1500);
+    }
+
+    // 🎯 次の移動はランダム時間後（3〜8秒）
+    const nextDelay = 3000 + Math.floor(Math.random() * 5000);
+    enemy.moveTimer = setTimeout(moveThisEnemy, nextDelay);
+  }
+
+  moveThisEnemy(); // 初回呼び出し
 }
+
 
 // 🧑‍🏫 足立先生の出現処理（1体のみ／ブロック回避）
 function spawnAdachi() {
