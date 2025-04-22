@@ -382,22 +382,25 @@ function checkEnemyAttack() {
   for (let enemy of enemies) {
     const ex = snapToGrid(parseInt(enemy.style.left));
     const ey = snapToGrid(parseInt(enemy.style.top));
-    
+
     const isAdjacent =
       (x === ex && y === ey - 32) || // 上
       (x === ex && y === ey + 32) || // 下
       (x === ex - 32 && y === ey) || // 左
       (x === ex + 32 && y === ey);   // 右
-    
+
     if (isAdjacent) {
-      hp -= 10; // 固定ダメージ（例）
+      hp -= 10;
       updateUI();
       showDamage(10, player);
 
-      // HPがゼロになったら何かする（例：アラートや復活など）
+      // 👇 HP0になったら即ゲームオーバー
       if (hp <= 0) {
-        alert("あなたはやられた！");
-        // ここにゲームオーバー処理を追加できる
+        setTimeout(() => {
+          alert("あなたはやられた！");
+          returnToTitle(); // 👈 タイトル画面に戻る
+        }, 100); // ほんの少し遅らせてアニメーション処理と干渉しないようにする
+        break;
       }
     }
   }
