@@ -2,6 +2,22 @@
 var players = [];
 var myPlayerId = 0;
 
+// 🎮 プレイヤーの状態管理用変数
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
+let x = 240, y = 240;
+let direction = "front";
+let frameIndex = 0;
+let hp = 100, atk = 15;
+
+const hpEl = document.getElementById("hp");
+const atkEl = document.getElementById("atk");
+
+const enemies = [];
+let adachiExists = false;
+let adachiHp = 100;
+let lastEnemyMoveTime = Date.now();
+let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
+
 // 自分のプレイヤーのDOMを取得して代入
 const player = document.getElementById("player");
 players[myPlayerId] = {
@@ -36,18 +52,6 @@ var player3 = {
 players.push(player2);
 players.push(player3);
 
-// （ゲームループ内の描画処理の一部）他プレイヤーの描画
-for (var i = 0; i < players.length; i++) {
-    // 自分自身のプレイヤーは既存の描画処理で対応済みのためスキップ
-    if (i === myPlayerId) continue;
-    var p = players[i];
-    // 存在し、表示フラグがtrueかつHPが残っているプレイヤーのみ描画
-    if (p && p.visible && p.hp > 0) {
-        // プレイヤーの画像を座標(x, y)に描画
-        ctx.drawImage(p.image, p.x, p.y);
-    }
-}
-
 
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
@@ -64,6 +68,21 @@ gameBgm.volume = 0.3;
 
 // 壁タイルの管理（将来のマップ定義と連携予定）
 const wallTiles = new Set(); // 例: wallTiles.add("5x10")
+
+// （ゲームループ内の描画処理の一部）他プレイヤーの描画
+for (var i = 0; i < players.length; i++) {
+    // 自分自身のプレイヤーは既存の描画処理で対応済みのためスキップ
+    if (i === myPlayerId) continue;
+    var p = players[i];
+    // 存在し、表示フラグがtrueかつHPが残っているプレイヤーのみ描画
+    if (p && p.visible && p.hp > 0) {
+        // プレイヤーの画像を座標(x, y)に描画
+        ctx.drawImage(p.image, p.x, p.y);
+    }
+}
+
+
+
 
 function isTileBlocked(xPos, yPos) {
   const tx = xPos / 32;
@@ -100,22 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// 🎮 プレイヤーの状態管理用変数
-const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
-let x = 240, y = 240;
-let direction = "front";
-let frameIndex = 0;
-let hp = 100, atk = 15;
 
-const player = document.getElementById("player");
-const hpEl = document.getElementById("hp");
-const atkEl = document.getElementById("atk");
-
-const enemies = [];
-let adachiExists = false;
-let adachiHp = 100;
-let lastEnemyMoveTime = Date.now();
-let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
 
 // 📏 グリッド単位で位置を揃える（32px単位）
 function snapToGrid(value) {
