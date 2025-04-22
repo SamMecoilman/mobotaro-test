@@ -2,8 +2,16 @@
 var players = [];
 var myPlayerId = 0;
 
-// 自プレイヤー（既存のplayerオブジェクト）を配列に登録
-players[myPlayerId] = player;
+// 自分のプレイヤーのDOMを取得して代入
+const player = document.getElementById("player");
+players[myPlayerId] = {
+  id: myPlayerId,
+  x: 240,
+  y: 240,
+  hp: 100,
+  maxHp: 100,
+  element: player
+};
 
 // 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
 var otherPlayerImg = new Image();
