@@ -408,29 +408,24 @@ function checkEnemyAttack() {
 
 
 function returnToTitle(showMessageAfter = false) {
-  // 🎌 ゲーム画面を非表示、メニューを表示
   document.getElementById("game").style.display = "none";
   document.getElementById("menu").style.display = "block";
-
-  // 🔈 BGM切り替え
   gameBgm.pause();
   gameBgm.currentTime = 0;
   menuBgm.currentTime = 0;
   menuBgm.play();
 
-  // 👤 プレイヤー初期化（必要なら）
+  // HPなどをリセット
   x = 240;
   y = 240;
   hp = 100;
   updateUI();
   player.style.left = x + "px";
   player.style.top = y + "px";
+  deathHandled = false; // ✅ 死亡フラグリセット
 
-  // 🧠 少し遅らせてアラートを出す
   if (showMessageAfter) {
-    setTimeout(() => {
-      alert("あなたはやられた！");
-    }, 300); // DOM更新後に出すためちょっと遅らせる
+    setTimeout(() => alert("あなたはやられた！"), 300); // ✅ 一度だけalertを出す
   }
 }
 
