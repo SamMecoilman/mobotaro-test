@@ -52,6 +52,9 @@ var player3 = {
 players.push(player2);
 players.push(player3);
 
+// 🎨 Canvas初期化：他プレイヤー描画用
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
 
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
