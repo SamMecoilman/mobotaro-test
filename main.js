@@ -354,7 +354,7 @@ function spawnAdachi() {
   adachiBgm.play();
 }
 
-// ▶️ ゲーム開始時の処理
+// ▶️ ゲーム開始時の処理（HTMLのonclickから呼ばれるため、グローバル公開する必要あり）
 window.startGame = function () {
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
@@ -366,8 +366,5 @@ window.startGame = function () {
   setInterval(spawnEnemy, 1000);
 };
 
-// 📱 仮想ボタンを押した時にキーボードイベントを送る
-function pressKey(key) {
-  const event = new KeyboardEvent("keydown", { key });
-  window.dispatchEvent(event);
-}
+
+
