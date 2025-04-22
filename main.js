@@ -7,6 +7,7 @@ const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: f
 let x = 240, y = 240;
 let direction = "front";
 let frameIndex = 0;
+let deathHandled = false;
 let hp = 100, atk = 15;
 
 const hpEl = document.getElementById("hp");
@@ -384,24 +385,27 @@ function checkEnemyAttack() {
     const ey = snapToGrid(parseInt(enemy.style.top));
 
     const isAdjacent =
-      (x === ex && y === ey - 32) || // 上
-      (x === ex && y === ey + 32) || // 下
-      (x === ex - 32 && y === ey) || // 左
-      (x === ex + 32 && y === ey);   // 右
+      (x === ex && y === ey - 32) ||
+      (x === ex && y === ey + 32) ||
+      (x === ex - 32 && y === ey) ||
+      (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
       hp -= 10;
+      if (hp < 0) hp = 0; // ✅ 0未満にしない
       updateUI();
       showDamage(10, player);
 
-      // 🎯 HP0でタイトルに戻すが、alertはあとで出す
-      if (hp <= 0) {
-        setTimeout(() => returnToTitle(true), 100); // trueを渡す
-        break;
+      if (hp <= 0 && !deathHandled) { // ✅ 二重alert防止
+        deathHandled = true;
+        setTimeout(() => returnToTitle(true), 100); // alertはreturnToTitle内で出す
       }
+
+      break;
     }
   }
 }
+
 
 function returnToTitle(showMessageAfter = false) {
   // 🎌 ゲーム画面を非表示、メニューを表示
