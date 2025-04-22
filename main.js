@@ -361,14 +361,21 @@ function spawnAdachi() {
   adachiBgm.play();
 }
 
-function pressKey(key) {
-  const downEvent = new KeyboardEvent("keydown", { key });
-  const upEvent = new KeyboardEvent("keyup", { key });
-  window.dispatchEvent(downEvent);
-  setTimeout(() => {
-    window.dispatchEvent(upEvent);
-  }, 100); // 0.1秒後に離す
-}
+document.addEventListener("DOMContentLoaded", () => {
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (isMobile) {
+    document.getElementById("mobile-controls").style.display = "flex";
+  } else {
+    document.getElementById("mobile-controls").style.display = "none";
+  }
+});
+
+window.pressKey = function(key) {
+  const down = new KeyboardEvent("keydown", { key });
+  const up = new KeyboardEvent("keyup", { key });
+  window.dispatchEvent(down);
+  setTimeout(() => window.dispatchEvent(up), 100); // 0.1秒後にキーを離す
+};
 
 // ▶️ ゲーム開始時の処理（HTMLのonclickから呼ばれるため、グローバル公開する必要あり）
 window.startGame = function () {
