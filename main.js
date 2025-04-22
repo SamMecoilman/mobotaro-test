@@ -196,8 +196,6 @@ function checkHit() {
 
       // タイマーが存在する場合は解除
       if (enemy.moveTimer) clearTimeout(enemy.moveTimer);
-    
-      // DOMと配列から削除
       enemy.remove();
       enemies.splice(i, 1);
       return;
@@ -336,6 +334,22 @@ function spawnEnemy() {
   map.appendChild(enemy);
   enemies.push(enemy);
 
+// 🕒 敵個別の移動タイマーを開始（3〜8秒ごとに移動）
+enemy.moveTimer = setTimeout(function moveSelf() {
+  if (!document.body.contains(enemy)) return; // DOMから削除されたら中断
+  const dx = [0, 32, -32, 0, 0];
+  const dy = [0, 0, 0, 32, -32];
+  const dir = Math.floor(Math.random() * dx.length);
+  const newX = snapToGrid(parseInt(enemy.style.left)) + dx[dir];
+  const newY = snapToGrid(parseInt(enemy.style.top)) + dy[dir];
+  if (!isTileBlocked(newX, newY)) {
+    enemy.style.left = `${newX}px`;
+    enemy.style.top = `${newY}px`;
+  }
+  // 次の移動を予約
+  enemy.moveTimer = setTimeout(moveSelf, 3000 + Math.random() * 5000);
+}, 3000 + Math.random() * 5000);
+  
   // 🎯 モブごとに独立した移動ループを開始
   const directions = [
     { dx: 0, dy: -32 },
