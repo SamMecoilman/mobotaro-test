@@ -377,25 +377,31 @@ function bindButtonHold(buttonId, key) {
   btn.addEventListener("touchcancel", () => clearInterval(interval));
 }
 
-// 🧟 敵モブがプレイヤーに攻撃する処理
+// ⛔ プレイヤーを攻撃するロジック（敵モブが隣接していたら攻撃）
 function checkEnemyAttack() {
   for (let enemy of enemies) {
     const ex = snapToGrid(parseInt(enemy.style.left));
     const ey = snapToGrid(parseInt(enemy.style.top));
-    if (ex === x && ey === y) {
-      const damage = 10; // 敵の攻撃力（仮）
-      hp -= damage;
-      if (hp < 0) hp = 0;
+    
+    const isAdjacent =
+      (x === ex && y === ey - 32) || // 上
+      (x === ex && y === ey + 32) || // 下
+      (x === ex - 32 && y === ey) || // 左
+      (x === ex + 32 && y === ey);   // 右
+    
+    if (isAdjacent) {
+      hp -= 10; // 固定ダメージ（例）
       updateUI();
-      showDamage(damage, player);
-      if (hp === 0) {
-        alert("ゲームオーバー");
-        // 必要に応じてゲームオーバー処理を追加
+      showDamage(10, player);
+
+      // HPがゼロになったら何かする（例：アラートや復活など）
+      if (hp <= 0) {
+        alert("あなたはやられた！");
+        // ここにゲームオーバー処理を追加できる
       }
     }
   }
 }
-
 
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
