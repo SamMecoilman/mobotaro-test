@@ -15,14 +15,13 @@ https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe5
 - 攻撃は方向依存、HP・ATK・会心率あり
 - 複数プレイヤーで同じ敵やボスを攻撃する可能性あり
 - 機能リファレンス：[dev.md](https://github.com/SamMecoilman/mobotaro-test/blob/main/dev.md)
-- Githubリポジトリ：https://github.com/SamMecoilman/mobotaro-test
 ---
 
 ### 【2. 今回やりたいこと】
-
+- https://github.com/SamMecoilman/mobotaro-test の既存ロジックに影響が出ないような機能拡張、改善方法を教えてほしい
 - 修正したい関数名：例）`checkHit()` or `moveEnemies()`
 - 内容：〇〇機能を追加／バグを修正／仕様に対応
-- 理由：〇〇のために改善が必要
+- 理由：具体的に既存ソースのどの部分にどういったソースを挿入・実装すればいいか教えてほしい
 
 ```js
 // 関数の原文や変更希望箇所をここに貼る
