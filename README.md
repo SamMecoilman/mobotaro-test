@@ -14,7 +14,7 @@ https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe5
 - プレイヤー　vs 他プレイヤー vs モブ敵（不良、生徒会）、vs 足立先生（レイドボス）
 - 攻撃は方向依存、HP・ATK・会心率あり
 - 複数プレイヤーで同じ敵やボスを攻撃する可能性あり
-- 機能リファレンス：https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe50U0/edit
+- 機能リファレンス：dev.md
 - Githubリポジトリ：https://github.com/SamMecoilman/mobotaro-test
 ---
 
