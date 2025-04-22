@@ -40,13 +40,20 @@
     <!-- 範囲は0〜1、初期値0.1、0.01刻みで調整可能 -->
   </div>
 <!-- 📱 モバイル用仮想コントローラー：class="touch-only" を追加 -->
-<div class="touch-only" id="mobile-controls">
-  <button onclick="pressKey('ArrowUp')">↑</button>
-  <button onclick="pressKey('ArrowDown')">↓</button>
-  <button onclick="pressKey('ArrowLeft')">←</button>
-  <button onclick="pressKey('ArrowRight')">→</button>
-  <button onclick="pressKey(' ')">攻撃</button>
+<div id="mobile-controls">
+  <div>
+    <button onclick="pressKey('ArrowUp')">↑</button>
+  </div>
+  <div>
+    <button onclick="pressKey('ArrowLeft')">←</button>
+    <button onclick="pressKey(' ')">攻撃</button>
+    <button onclick="pressKey('ArrowRight')">→</button>
+  </div>
+  <div>
+    <button onclick="pressKey('ArrowDown')">↓</button>
+  </div>
 </div>
+
 <!-- 他プレイヤー描画用の非表示キャンバス -->
 <canvas id="canvas" width="512" height="512" style="display: none;"></canvas>
 <!-- メインのJavaScriptファイルを読み込み -->
