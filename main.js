@@ -73,9 +73,6 @@ menuBgm.volume = 0.3;
 gameBgm.loop = true;
 gameBgm.volume = 0.3;
 
-// 壁タイルの管理（将来のマップ定義と連携予定）
-const wallTiles = new Set(); // 例: wallTiles.add("5x10")
-
 // （ゲームループ内の描画処理の一部）他プレイヤーの描画
 for (var i = 0; i < players.length; i++) {
     // 自分自身のプレイヤーは既存の描画処理で対応済みのためスキップ
@@ -87,6 +84,9 @@ for (var i = 0; i < players.length; i++) {
         ctx.drawImage(p.image, p.x, p.y);
     }
 }
+
+// 壁タイルの管理（将来のマップ定義と連携予定）
+const wallTiles = new Set(); // 例: wallTiles.add("5x10")
 
 function isTileBlocked(xPos, yPos) {
   const tx = xPos / 32;
