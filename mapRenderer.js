@@ -67,7 +67,7 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 }
 
 export function drawMapLayers(ctx) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMaps[floorIndex], tileset, ctx);
   drawItemLayer(itemMaps[floorIndex], itemset, ctx);
 }
