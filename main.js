@@ -296,10 +296,29 @@ function checkLevelUp() {
     playerData.maxHp += 10;
     playerData.atk += 2;
     playerData.hp = playerData.maxHp;
+
     updateUI();
-    alert(`🎉 レベル${playerData.level}にアップ！`);
+
+    // 🎉 レベルアップの吹き出し表示
+    const msg = document.createElement("div");
+    msg.className = "bubble";
+    msg.textContent = `🎉 レベル${playerData.level}にアップ！`;
+    msg.style.position = "absolute";
+    msg.style.left = player.style.left;
+    msg.style.top = `${parseInt(player.style.top) - 32}px`;
+    msg.style.color = "white";
+    msg.style.background = "rgba(0,0,128,0.8)";
+    msg.style.padding = "2px 6px";
+    msg.style.borderRadius = "6px";
+    msg.style.fontSize = "12px";
+    msg.style.zIndex = "999";
+    msg.style.pointerEvents = "none";
+
+    document.getElementById("map").appendChild(msg);
+    setTimeout(() => msg.remove(), 2000); // 2秒で消える
   }
 }
+
 
 // 🎞️ 歩行アニメーション処理
 function animate() {
