@@ -1,8 +1,7 @@
 import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
-tileset.onload = () => {
-  ctx.drawImage(tileset, 0, 0, 32, 32, 0, 0, 32, 32); // 左上に1マスタイル表示
-  console.log("🧱 タイル1枚を描画した");
-};
+itemset.onload = () => console.log("✅ itemset 読み込み成功");
+itemset.onerror = () => console.error("❌ itemset 読み込み失敗：images/item.png が見つからないか壊れている");
+
 
 // プレイヤー管理用の配列と自分のプレイヤーID
 var players = [];
