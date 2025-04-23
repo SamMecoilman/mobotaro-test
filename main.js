@@ -6,33 +6,18 @@ canvas.width = 96 * 32;
 canvas.height = 48 * 32;
 const ctx = canvas.getContext("2d");
 
-
-
 // マップのスプライトシート
-let tilesetLoaded = false;
-let itemsetLoaded = false;
-
-function tryStart() {
-  if (tilesetLoaded && itemsetLoaded) {
-    console.log("🧱 tileset & itemset 読み込み完了");
+tileset.onload = () => {
+  console.log("✅ tileset 読み込み完了");
+  itemset.onload = () => {
+    console.log("✅ itemset 読み込み完了");
     drawMapLayers(ctx);
     requestAnimationFrame(animate);
-  }
-}
-
-tileset.onerror = () => console.error("❌ tileset 読み込み失敗：パスミスか破損");
-
-tileset.onload = () => {
-  console.log("✅ tileset 読み込み成功");
-  tilesetLoaded = true;
-  tryStart();
+  };
+  itemset.onerror = () => console.error("❌ itemset 読み込み失敗");
 };
+tileset.onerror = () => console.error("❌ tileset 読み込み失敗");
 
-itemset.onload = () => {
-  console.log("✅ itemset 読み込み成功");
-  itemsetLoaded = true;
-  tryStart();
-};
 
 // UIボタンから階層切り替え可能
 window.changeFloor = (i) => changeFloor(i, ctx);
