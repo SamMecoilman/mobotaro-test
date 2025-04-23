@@ -230,6 +230,7 @@ function checkHit() {
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
       showDamage(playerAtk, enemy);
+      if (enemy.dataset.type === 'passive') enemy.dataset.type = 'aggressive';
       players[myPlayerId].exp += 25;
       checkLevelUp();
 
@@ -352,6 +353,11 @@ function moveEnemies() {
 
   for (let enemy of enemies) {
     const dir = directions[Math.floor(Math.random() * directions.length)];
+    if (enemy.dataset.type === 'aggressive') {
+      const dx = x - parseInt(enemy.style.left);
+      const dy = y - parseInt(enemy.style.top);
+      dir = { dx: Math.sign(dx) * 32, dy: Math.sign(dy) * 32 };
+    }
     const currentX = snapToGrid(parseInt(enemy.style.left));
     const currentY = snapToGrid(parseInt(enemy.style.top));
     const newX = currentX + dir.dx;
@@ -404,6 +410,7 @@ function spawnEnemy() {
   } while ((isTileBlocked(ex, ey) || (ex === x && ey === y)) && tries < 50);
 
   const enemy = document.createElement("img");
+  enemy.dataset.type = Math.random() < 0.5 ? 'passive' : 'aggressive';
   enemy.src = "images/enemy.png";
   enemy.className = "enemy";
   enemy.style.position = "absolute";
@@ -531,6 +538,7 @@ const enemyAttackTimestamps = new Map();
 // ⛔ プレイヤーを攻撃するロジック（敵モブが隣接していたら1秒後に攻撃）
 function checkEnemyAttack() {
   for (let enemy of enemies) {
+    if (enemy.dataset.type !== 'aggressive') continue;
     const ex = snapToGrid(parseInt(enemy.style.left));
     const ey = snapToGrid(parseInt(enemy.style.top));
 
