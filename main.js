@@ -286,7 +286,22 @@ for (let i = 0; i < players.length; i++) {
 }
 }
 
-// レベルアップ処理
+// 📢 レベルアップの吹き出し表示
+function showLevelUpBubble(level) {
+  const msg = document.createElement("div");
+  const bubbleId = `levelup-${Date.now()}`;
+  msg.className = "bubble";
+  msg.dataset.ownerId = bubbleId;
+  msg.textContent = `🎉 Lv.${level}にアップ！`;
+
+  msg.style.left = player.style.left;
+  msg.style.top = `${parseInt(player.style.top) - 32}px`;
+
+  document.getElementById("map").appendChild(msg);
+  setTimeout(() => msg.remove(), 1500);
+}
+
+// 🆙 レベルアップ処理
 function checkLevelUp() {
   const playerData = players[myPlayerId];
   while (playerData.exp >= playerData.nextLevelExp) {
@@ -296,26 +311,8 @@ function checkLevelUp() {
     playerData.maxHp += 10;
     playerData.atk += 2;
     playerData.hp = playerData.maxHp;
-
     updateUI();
-
-    // 🎉 レベルアップの吹き出し表示
-    const msg = document.createElement("div");
-    msg.className = "bubble";
-    msg.textContent = `🎉 レベル${playerData.level}にアップ！`;
-    msg.style.position = "absolute";
-    msg.style.left = player.style.left;
-    msg.style.top = `${parseInt(player.style.top) - 32}px`;
-    msg.style.color = "white";
-    msg.style.background = "rgba(0,0,128,0.8)";
-    msg.style.padding = "2px 6px";
-    msg.style.borderRadius = "6px";
-    msg.style.fontSize = "12px";
-    msg.style.zIndex = "999";
-    msg.style.pointerEvents = "none";
-
-    document.getElementById("map").appendChild(msg);
-    setTimeout(() => msg.remove(), 2000); // 2秒で消える
+    showLevelUpBubble(playerData.level); // ← alert ではなく吹き出し表示に変更
   }
 }
 
