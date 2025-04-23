@@ -23,6 +23,8 @@ export async function loadAllMaps() {
   for (let i = 0; i < FLOOR_COUNT; i++) {
     tileMaps[i] = await loadCsvMap(`map/floor${i}_tile.csv`);
     itemMaps[i] = await loadCsvMap(`map/floor${i}_item.csv`);
+    console.log(`✅ floor${i} tileMap`, tileMaps[i]);
+    console.log(`✅ floor${i} itemMap`, itemMaps[i]);
   }
 }
 
@@ -84,6 +86,8 @@ export function drawMapLayers(ctx) {
   if (!ctx) return;
   const tileMap = tileMaps[floorIndex];
   const itemMap = itemMaps[floorIndex];
+  console.log("🧱 tileMap:", tileMap);
+  console.log("🌱 itemMap:", itemMap);
   if (!tileMap || !itemMap) return;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMap, tileset, ctx);
