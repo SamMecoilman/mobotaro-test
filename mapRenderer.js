@@ -86,19 +86,17 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 }
 
 export function drawMapLayers(ctx) {
-  ctx.fillStyle = "red";
-  ctx.fillRect(0, 0, 100, 100); // ← これが見えなければ canvas が非表示か z-index 問題
-  /*
   if (!ctx) return;
   const tileMap = tileMaps[floorIndex];
   const itemMap = itemMaps[floorIndex];
+  
+  console.log("🖌️ drawMapLayers 呼び出し確認"); // ←★追記
   console.log("🧱 tileMap:", tileMap);
   console.log("🌱 itemMap:", itemMap);
   if (!tileMap || !itemMap) return;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMap, tileset, ctx);
   drawItemLayer(itemMap, itemset, ctx);
-  */
 }
 
 export function changeFloor(newFloor, ctx) {
