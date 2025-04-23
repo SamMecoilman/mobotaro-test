@@ -244,8 +244,9 @@ function checkHit() {
     else if (direction === "left" && ax === x - 32 && ay === y) hit = true;
     else if (direction === "right" && ax === x + 32 && ay === y) hit = true;
     if (hit) {
-      adachiHp -= atk;
-      showDamage(atk, adachi);
+      const atkVal = players[myPlayerId].atk;
+      showDamage(atkVal, enemy);
+      adachiHp -= atkVal;
       if (adachiHp <= 0) {
         adachi.remove();
         adachiExists = false;
