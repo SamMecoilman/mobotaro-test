@@ -8,7 +8,9 @@ let isGameStarted = false;
 // モブキャラのスプライトシート
 const spriteSheet = new Image();
 spriteSheet.src = "images/eielIOFX.png";
-
+spriteSheet.onload = () => {
+  spriteSheet.crossOrigin = "anonymous"; // 🔍 透過対策（CORS）
+};
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x, y;
@@ -355,7 +357,7 @@ function animate() {
   frameIndex = (frameIndex + 1) % 3;
 
   // 各方向を行番号にマッピング
-  const directionMap = { front: 0, back: 1, left: 2, right: 3 };
+  const directionMap = { back: 0, front: 1, left: 3, right: 2 };
   const frameY = directionMap[direction] ?? 0;
 
   // canvasを消去して再描画（背景がある場合は差し替え要）
