@@ -85,6 +85,9 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 }
 
 export function drawMapLayers(ctx) {
+  ctx.fillStyle = "red";
+  ctx.fillRect(0, 0, 100, 100); // ← これが見えなければ canvas が非表示か z-index 問題
+  /*
   if (!ctx) return;
   const tileMap = tileMaps[floorIndex];
   const itemMap = itemMaps[floorIndex];
@@ -94,6 +97,7 @@ export function drawMapLayers(ctx) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMap, tileset, ctx);
   drawItemLayer(itemMap, itemset, ctx);
+  */
 }
 
 export function changeFloor(newFloor, ctx) {
