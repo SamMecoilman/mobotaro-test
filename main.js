@@ -161,12 +161,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   document.getElementById("mobile-controls").style.display = isMobile ? "flex" : "none";
 
-  // 📱 仮想ボタンの長押し対応（DOMContentLoaded内に正しく設置）
-  bindButtonHold("btn-up", "ArrowUp");
-  bindButtonHold("btn-down", "ArrowDown");
-  bindButtonHold("btn-left", "ArrowLeft");
-  bindButtonHold("btn-right", "ArrowRight");
-  bindButtonHold("btn-attack", " ");
+// 📱 仮想ボタンの長押し対応（DOMContentLoaded内に正しく設置）
+["btn-up", "btn-down", "btn-left", "btn-right", "btn-attack"].forEach(id => {
+  const btn = document.getElementById(id);
+  if (btn) {
+    const key = id === "btn-attack" ? " " : `Arrow${id.split("-")[1].charAt(0).toUpperCase() + id.split("-")[1].slice(1)}`;
+    bindButtonHold(id, key);
+  }
 });
 
 
