@@ -66,8 +66,9 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
       const sx = (tileId % TILESET_COLS) * TILE_SIZE;
       const sy = Math.floor(tileId / TILESET_COLS) * TILE_SIZE;
 
-      // 👇 ログ出力（見えすぎたら5個だけとかでもOK）
-      if (y < 5 && x < 5) console.log(`描画中: tileId=${tileId}, sx=${sx}, sy=${sy}, x=${x}, y=${y}`);
+      // テスト塗り：緑
+      ctx.fillStyle = "#00FF00";
+      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 
       
       ctx.drawImage(tilesetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
