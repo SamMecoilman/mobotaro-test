@@ -28,8 +28,8 @@ export async function loadAllMaps() {
 
 export function createDummyTileMap(offset) {
   const map = [];
-  const tilesX = canvas.width / TILE_SIZE;
-  const tilesY = canvas.height / TILE_SIZE;
+  const tilesX = Math.floor(canvas.width / TILE_SIZE);
+  const tilesY = Math.floor(canvas.height / TILE_SIZE);
   for (let y = 0; y < tilesY; y++) {
     const row = [];
     for (let x = 0; x < tilesX; x++) {
