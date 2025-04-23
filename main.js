@@ -8,7 +8,7 @@ let x, y;
 let direction = "front";
 let frameIndex = 0;
 let deathHandled = false;
-let hp = 100, atk = 15;
+let atk = 15;
 
 const hpEl = document.getElementById("hp");
 const atkEl = document.getElementById("atk");
@@ -509,16 +509,15 @@ function checkEnemyAttack() {
       (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
-      hp -= 10;
-      if (hp < 0) hp = 0; // ✅ 0未満にしない
+      players[myPlayerId].hp -= 10;
+      if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
       updateUI();
       showDamage(10, player);
-
-      if (hp <= 0 && !deathHandled) { // ✅ 二重alert防止
+      
+      if (players[myPlayerId].hp <= 0 && !deathHandled) {
         deathHandled = true;
-        setTimeout(() => returnToTitle(true), 100); // alertはreturnToTitle内で出す
+        setTimeout(() => returnToTitle(true), 100);
       }
-
       break;
     }
   }
@@ -533,13 +532,17 @@ function returnToTitle(showMessageAfter = false) {
   menuBgm.currentTime = 0;
   menuBgm.play();
 
-  // HPなどをリセット
-  x = 240;
-  y = 240;
-  hp = 100;
+  // HPなどをリセット（ランダムリスポーン対応）
+  const spawn = getRandomSpawnPosition();
+  x = spawn.x;
+  y = spawn.y;
+  players[myPlayerId].x = x;
+  players[myPlayerId].y = y;
+  players[myPlayerId].hp = players[myPlayerId].maxHp;
   updateUI();
   player.style.left = x + "px";
   player.style.top = y + "px";
+
   deathHandled = false; // ✅ 死亡フラグリセット
 
   if (showMessageAfter) {
