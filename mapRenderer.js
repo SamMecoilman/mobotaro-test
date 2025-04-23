@@ -74,6 +74,6 @@ export function drawMapLayers(ctx) {
 
 export function changeFloor(newFloor) {
   floorIndex = newFloor;
-  drawMapLayers(ctx);
+  drawMapLayers();
 }
 
