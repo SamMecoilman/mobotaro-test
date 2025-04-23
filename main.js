@@ -27,6 +27,10 @@ players[myPlayerId] = {
   y: y,
   hp: 100,
   maxHp: 100,
+  atk: 15,
+  exp: 0,
+  level: 1,
+  nextLevelExp: 100,
   element: player
 };
 
@@ -165,9 +169,12 @@ function getRandomSpawnPosition() {
 
 // 🧍 ステータスUIの表示を更新
 function updateUI() {
-  hpEl.textContent = hp;
-  atkEl.textContent = atk;
+  hpEl.textContent = players[myPlayerId].hp;
+  atkEl.textContent = players[myPlayerId].atk;
+  document.getElementById("level").textContent = players[myPlayerId].level;
+  document.getElementById("exp").textContent = `${players[myPlayerId].exp}/${players[myPlayerId].nextLevelExp}`;
 }
+
 
 // ↔ プレイヤーの移動処理
 function updatePosition() {
@@ -209,6 +216,8 @@ function checkHit() {
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
       showDamage(atk, enemy);
+      players[myPlayerId].exp += 25;
+      checkLevelUp();
 
       // 💬 吹き出し削除（もし表示中なら）
       const bubbleId = enemy.dataset.bubbleId;
@@ -274,6 +283,21 @@ for (let i = 0; i < players.length; i++) {
     return;
   }
 }
+}
+
+// レベルアップ処理
+function checkLevelUp() {
+  const playerData = players[myPlayerId];
+  while (playerData.exp >= playerData.nextLevelExp) {
+    playerData.exp -= playerData.nextLevelExp;
+    playerData.level += 1;
+    playerData.nextLevelExp = Math.floor(playerData.nextLevelExp * 1.5);
+    playerData.maxHp += 10;
+    playerData.atk += 2;
+    playerData.hp = playerData.maxHp;
+    updateUI();
+    alert(`🎉 レベル${playerData.level}にアップ！`);
+  }
 }
 
 // 🎞️ 歩行アニメーション処理
