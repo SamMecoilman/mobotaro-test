@@ -541,30 +541,41 @@ function checkEnemyAttack() {
       (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
-      // 1秒間隔で攻撃（再攻撃防止用タイマー）
-      if (enemy.lastAttack && Date.now() - enemy.lastAttack < 1000) continue;
-      enemy.lastAttack = Date.now();
+      const now = Date.now();
 
-      // 🔥 クリティカル判定（20%）
+      // 初めて隣接した or 離れてから再び隣接した場合、タイマー開始
+      if (!enemy.firstAdjacentTime) {
+        enemy.firstAdjacentTime = now;
+        return;
+      }
+
+      // まだ1秒経っていないなら攻撃しない
+      if (now - enemy.firstAdjacentTime < 1000) return;
+
+      // 攻撃間隔制限（1秒に1回）
+      if (enemy.lastAttack && now - enemy.lastAttack < 1000) return;
+      enemy.lastAttack = now;
+
+      // クリティカル判定
       const isCritical = Math.random() < 0.2;
       const damage = isCritical ? 20 : 10;
 
-      // 🔊 サウンド再生
-      if (isCritical) {
-        const critSE = new Audio("mob/attack_SE/critical.wav");
-        critSE.volume = 0.6;
-        critSE.play();
-      } else {
-        const normSE = new Audio("mob/attack_SE/nomal.wav");
-        normSE.volume = 0.5;
-        normSE.play();
-      }
+      // 攻撃ボイス（VOICE）
+      const voiceId = Math.floor(Math.random() * 5) + 1;
+      const voice = new Audio(`mob/attack/voice${voiceId}.mp3`);
+      voice.volume = 0.7;
+      voice.play();
 
-      // 💥 エフェクト（攻撃時の赤フラッシュ）
+      // 攻撃SE（SE）
+      const se = new Audio(isCritical ? "mob/attack_SE/critical.wav" : "mob/attack_SE/nomal.wav");
+      se.volume = 0.6;
+      se.play();
+
+      // フラッシュ演出
       enemy.classList.add("enemy-attack-flash");
       setTimeout(() => enemy.classList.remove("enemy-attack-flash"), 150);
 
-      // 💥 プレイヤーにダメージ
+      // ダメージ処理
       players[myPlayerId].hp -= damage;
       if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
 
@@ -576,12 +587,15 @@ function checkEnemyAttack() {
         setTimeout(() => returnToTitle(true), 100);
       }
 
-      break;
+      return; // 1体だけ処理して終わり
     } else {
-      enemy.lastAttack = 0; // 🧹 離れたらタイマー解除
+      // 隣接していない：タイマーリセット
+      enemy.firstAdjacentTime = 0;
+      enemy.lastAttack = 0;
     }
   }
 }
+
 
 
 // ランダムダメージVoice & SE
