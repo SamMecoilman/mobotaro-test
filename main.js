@@ -2,6 +2,9 @@
 var players = [];
 var myPlayerId = 0;
 
+// ゲーム中かどうかのフラグ（タイトル画面では false）
+let isGameStarted = false;
+
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x, y;
@@ -576,6 +579,7 @@ function returnToTitle(showMessageAfter = false) {
   player.style.top = y + "px";
 
   deathHandled = false;
+  isGameStarted = false; // ゲーム終了時に無効化
 
   if (showMessageAfter) {
     setTimeout(() => alert("あなたはやられた！"), 300);
@@ -586,10 +590,13 @@ function returnToTitle(showMessageAfter = false) {
 
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
+  if (!isGameStarted) return; // ✅ タイトル画面では無視
   if (e.key.startsWith("Arrow")) keys[e.key] = true;
   if (e.key === " ") checkHit();
 });
+
 window.addEventListener("keyup", e => {
+  if (!isGameStarted) return; // ✅ タイトル画面では無視
   if (e.key.startsWith("Arrow")) keys[e.key] = false;
 });
 
@@ -602,6 +609,8 @@ window.pressKey = function(key) {
 
 // ▶️ ゲーム開始時の処理（HTMLのonclickから呼ばれるため、グローバル公開する必要あり）
 window.startGame = function () {
+  isGameStarted = true; // ✅ ゲーム開始フラグON
+  
   document.getElementById("menu").style.display = "none";
   document.getElementById("game").style.display = "block";
   menuBgm.pause();
@@ -609,6 +618,13 @@ window.startGame = function () {
   gameBgm.play();
   updateUI();
 
+  // ⛔ 方向キー状態を初期化（これが今回の修正点）
+  keys.ArrowUp = false;
+  keys.ArrowDown = false;
+  keys.ArrowLeft = false;
+  keys.ArrowRight = false;
+
+  
   // 🎲 再開時もランダムリスポーン
   const spawn = getRandomSpawnPosition();
   x = spawn.x;
