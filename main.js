@@ -8,7 +8,6 @@ let x, y;
 let direction = "front";
 let frameIndex = 0;
 let deathHandled = false;
-let atk = 15;
 
 const hpEl = document.getElementById("hp");
 const atkEl = document.getElementById("atk");
