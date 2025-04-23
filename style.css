@@ -101,6 +101,12 @@ body {
   }
 }
 
+/* 🔴 攻撃時の赤フラッシュ演出 */
+.enemy-attack-flash {
+  filter: brightness(2) hue-rotate(-30deg);
+  transition: filter 0.1s;
+}
+
 /* 📱 モバイル用仮想ボタン */
 #mobile-controls {
   position: fixed;
