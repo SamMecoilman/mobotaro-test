@@ -229,22 +229,27 @@ function checkHit() {
     else if (direction === "left" && ex === x - 32 && ey === y) hit = true;
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
+      // 敵のHP処理を追加（耐久力を持たせる）
+      enemy.hp = (enemy.hp || 30) - playerAtk;
+    
       showDamage(playerAtk, enemy);
       if (enemy.dataset.type === 'passive') enemy.dataset.type = 'aggressive';
-      players[myPlayerId].exp += 25;
-      checkLevelUp();
-
+    
       // 💬 吹き出し削除（もし表示中なら）
       const bubbleId = enemy.dataset.bubbleId;
       if (bubbleId) {
         const bubble = document.querySelector(`[data-owner-id="${bubbleId}"]`);
         if (bubble) bubble.remove();
       }
-
-      // タイマーが存在する場合は解除
-      if (enemy.moveTimer) clearTimeout(enemy.moveTimer);
-      enemy.remove();
-      enemies.splice(i, 1);
+    
+      // HPが0以下なら削除と経験値処理
+      if (enemy.hp <= 0) {
+        if (enemy.moveTimer) clearTimeout(enemy.moveTimer);
+        enemy.remove();
+        enemies.splice(i, 1);
+        players[myPlayerId].exp += 25;
+        checkLevelUp();
+      }
       return;
     }
   }
@@ -411,6 +416,7 @@ function spawnEnemy() {
 
   const enemy = document.createElement("img");
   enemy.dataset.type = Math.random() < 0.5 ? 'passive' : 'aggressive';
+  enemy.dataset.hp = '30'; // プレイヤーの攻撃（15）を2回耐える
   enemy.src = "images/enemy.png";
   enemy.className = "enemy";
   enemy.style.position = "absolute";
