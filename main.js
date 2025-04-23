@@ -103,7 +103,8 @@ for (var i = 0; i < players.length; i++) {
     // 存在し、表示フラグがtrueかつHPが残っているプレイヤーのみ描画
     if (p && p.visible && p.hp > 0) {
         // プレイヤーの画像を座標(x, y)に描画
-        ctx.drawImage(p.image, p.x, p.y);
+        const otherFrameY = 1; // 例：下向き固定
+        ctx.drawImage(spriteSheet, frameIndex * 32, otherFrameY * 32, 32, 32, p.x, p.y, 32, 32);
     }
 }
 
@@ -745,22 +746,6 @@ window.startGame = function () {
   x = spawn.x;
   y = spawn.y;
 
-  // 再作成（消えている場合）
-  if (!document.getElementById("player")) {
-    const newPlayer = document.createElement("img");
-    newPlayer.id = "player";
-    newPlayer.src = `images/mob_front_frame_1.png`;
-    newPlayer.style.position = "absolute";
-    newPlayer.style.width = "32px";
-    newPlayer.style.height = "48px";
-    document.getElementById("map").appendChild(newPlayer);
-  }
-
-  const updatedPlayer = document.getElementById("player");
-  updatedPlayer.style.left = x + "px";
-  updatedPlayer.style.top = y + "px";
-  player = updatedPlayer;
-  players[myPlayerId].element = updatedPlayer;
   players[myPlayerId].x = x;
   players[myPlayerId].y = y;
 
