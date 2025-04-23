@@ -1,4 +1,4 @@
-import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
+import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps, tileMaps, itemMaps } from "./mapRenderer.js";
 
 // 🎨 Canvas初期化：他プレイヤー描画用
 const canvas = document.getElementById("canvas");
