@@ -42,7 +42,7 @@ export function createDummyItemMap(offset) {
   return map;
 }
 
-export function drawTileLayer(tileMap, tilesetImage) {
+export function drawTileLayer(tileMap, tilesetImage, ctx) {
   for (let y = 0; y < tileMap.length; y++) {
     for (let x = 0; x < tileMap[y].length; x++) {
       const tileId = tileMap[y][x];
@@ -53,7 +53,7 @@ export function drawTileLayer(tileMap, tilesetImage) {
   }
 }
 
-export function drawItemLayer(itemMap, itemsetImage) {
+export function drawItemLayer(itemMap, itemsetImage, ctx) {
   for (let y = 0; y < itemMap.length; y++) {
     for (let x = 0; x < itemMap[y].length; x++) {
       const itemId = itemMap[y][x];
@@ -66,14 +66,14 @@ export function drawItemLayer(itemMap, itemsetImage) {
   }
 }
 
-export function drawMapLayers() {
+export function drawMapLayers(ctx) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawTileLayer(tileMaps[floorIndex], tileset);
-  drawItemLayer(itemMaps[floorIndex], itemset);
+  drawTileLayer(tileMaps[floorIndex], tileset, ctx);
+  drawItemLayer(itemMaps[floorIndex], itemset, ctx);
 }
 
 export function changeFloor(newFloor) {
   floorIndex = newFloor;
-  drawMapLayers();
+  drawMapLayers(ctx);
 }
 
