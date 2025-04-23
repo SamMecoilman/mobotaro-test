@@ -1,6 +1,6 @@
 // === 🧱 タイルマップ描画処理の追加（images/map.png, item.png 使用） ===
 export const TILE_SIZE = 32;
-export const FLOOR_COUNT = 4;
+export const FLOOR_COUNT = 1;
 export const TILESET_COLS = 32;
 export let floorIndex = 0;
 
