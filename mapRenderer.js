@@ -23,8 +23,9 @@ export async function loadAllMaps() {
   for (let i = 0; i < FLOOR_COUNT; i++) {
     tileMaps[i] = await loadCsvMap(`map/floor${i}_tile.csv`);
     itemMaps[i] = await loadCsvMap(`map/floor${i}_item.csv`);
-    console.log(`✅ floor${i} tileMap`, tileMaps[i]);
-    console.log(`✅ floor${i} itemMap`, itemMaps[i]);
+    // 👇 ここに最大IDのログを追加
+    const maxTileId = Math.max(...tileMaps[i].flat());
+    console.log(`🧱 floor${i} tileMap 最大ID: ${maxTileId}`);
   }
 }
 
