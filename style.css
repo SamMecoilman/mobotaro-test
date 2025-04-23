@@ -33,8 +33,10 @@ body {
   top: 0;
   left: 0;
   z-index: 1;
-  width: auto;
-  height: auto;
+  /*width: auto;*/
+  /*height: auto;*/
+  width: 3072px; /* 96タイル × 32px */
+  height: 1536px; /* 48タイル × 32px */
   image-rendering: pixelated; /* ドット絵に最適化 */
   pointer-events: none;       /* クリックなどを無効化 */
 }
