@@ -93,11 +93,11 @@ const normalAttackSE = new Audio("mob/attack_SE/nomal.wav");
 
 // BGMをループ再生に設定し、初期音量を調整
 adachiBgm.loop = true;
-adachiBgm.volume = 0.3;
+adachiBgm.volume = 0.1;
 menuBgm.loop = true;
-menuBgm.volume = 0.3;
+menuBgm.volume = 0.1;
 gameBgm.loop = true;
-gameBgm.volume = 0.3;
+gameBgm.volume = 0.1;
 
 // （ゲームループ内の描画処理の一部）他プレイヤーの描画
 for (var i = 0; i < players.length; i++) {
