@@ -258,6 +258,11 @@ function checkHit() {
   attackVoice.volume = 0.7;
   attackVoice.play();
 
+  // 🎵 プレイヤーの通常攻撃SE（既存のnormalAttackSEを使用）
+  normalAttackSE.currentTime = 0;
+  normalAttackSE.volume = 0.5;
+  normalAttackSE.play();
+  
   for (let i = 0; i < enemies.length; i++) {
     const enemy = enemies[i];
     const ex = snapToGrid(parseInt(enemy.style.left));
