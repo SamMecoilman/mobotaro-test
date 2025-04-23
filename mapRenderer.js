@@ -67,23 +67,27 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
 }
 
 export function drawItemLayer(itemMap, itemsetImage, ctx) {
-  for (let y = 0; y < itemMap.length; y++) {
-    for (let x = 0; x < itemMap[y].length; x++) {
-      const itemId = itemMap[y][x];
-      if (itemId >= 0) {
-        const sx = (itemId % TILESET_COLS) * TILE_SIZE;
-        const sy = Math.floor(itemId / TILESET_COLS) * TILE_SIZE;
-        ctx.drawImage(itemsetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+  if (!itemMap || !Array.isArray(itemMap) || itemMap.length === 0) return;
+    for (let y = 0; y < itemMap.length; y++) {
+      for (let x = 0; x < itemMap[y].length; x++) {
+        const itemId = itemMap[y][x];
+        if (itemId >= 0) {
+          const sx = (itemId % TILESET_COLS) * TILE_SIZE;
+          const sy = Math.floor(itemId / TILESET_COLS) * TILE_SIZE;
+          ctx.drawImage(itemsetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
       }
     }
-  }
 }
 
 export function drawMapLayers(ctx) {
   if (!ctx) return;
+  const tileMap = tileMaps[floorIndex];
+  const itemMap = itemMaps[floorIndex];
+  if (!tileMap || !itemMap) return;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  drawTileLayer(tileMaps[floorIndex], tileset, ctx);
-  drawItemLayer(itemMaps[floorIndex], itemset, ctx);
+  drawTileLayer(tileMap, tileset, ctx);
+  drawItemLayer(itemMap, itemset, ctx);
 }
 
 export function changeFloor(newFloor, ctx) {
