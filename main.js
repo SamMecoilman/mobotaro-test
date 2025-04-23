@@ -423,6 +423,7 @@ function showLevelUpBubble(level) {
 // 🆙 レベルアップ処理
 function checkLevelUp() {
   const playerData = players[myPlayerId];
+  let leveledUp = false; // 🔄 同期確認用フラグ
   while (playerData.exp >= playerData.nextLevelExp) {
     playerData.exp -= playerData.nextLevelExp;
     playerData.level += 1;
@@ -430,11 +431,10 @@ function checkLevelUp() {
     playerData.maxHp += 10;
     playerData.atk += 2;
     playerData.hp = playerData.maxHp;
-    updateUI();
+    leveledUp = true;
     showLevelUpBubble(playerData.level); // ← alert ではなく吹き出し表示に変更
   }
-  // 🔄 経験値バーの表示を強制的に同期
-  updateUI();
+  if (leveledUp) updateUI(); // 🔄 レベルアップ時のみUI再描画
 }
 
 
