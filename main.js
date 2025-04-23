@@ -208,9 +208,9 @@ function updatePosition() {
   if (!isTileBlocked(newX, newY)) {
     x = snapToGrid(newX);
     y = snapToGrid(newY);
+    player.style.left = x + "px";
+    player.style.top = y + "px";
   }
-  player.style.left = x + "px";
-  player.style.top = y + "px";
 }
 
 // 💥 ダメージ表示演出
