@@ -27,7 +27,7 @@ let lastEnemyMoveTime = Date.now();
 let enemyMoveInterval = 5000 + Math.floor(Math.random() * 3000); // 5〜8秒ランダム
 
 // 自分のプレイヤーのDOMを取得して代入
-let player = document.getElementById("player");
+let player = null; // DOMではなくcanvas管理
 players[myPlayerId] = {
   id: myPlayerId,
   x: x,
@@ -38,7 +38,7 @@ players[myPlayerId] = {
   exp: 0,
   level: 1,
   nextLevelExp: 100,
-  element: player
+  element: null
 };
 
 if (player && player.style) {
