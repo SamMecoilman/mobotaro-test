@@ -1,4 +1,4 @@
-import { drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
+import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
 
 
 // プレイヤー管理用の配列と自分のプレイヤーID
