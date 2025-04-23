@@ -1,18 +1,35 @@
 import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
 
-tileset.onload = () => {
-  itemset.onload = () => {
-    drawMapLayers(ctx);
-    requestAnimationFrame(animate);
-  };
-};
-
 // プレイヤー管理用の配列と自分のプレイヤーID
 var players = [];
 var myPlayerId = 0;
 
 // ゲーム中かどうかのフラグ（タイトル画面では false）
 let isGameStarted = false;
+
+// マップのスプライトシート
+let tilesetLoaded = false;
+let itemsetLoaded = false;
+
+function tryStart() {
+  if (tilesetLoaded && itemsetLoaded) {
+    console.log("🧱 tileset & itemset 読み込み完了");
+    drawMapLayers(ctx);
+    requestAnimationFrame(animate);
+  }
+}
+
+tileset.onload = () => {
+  console.log("✅ tileset 読み込み成功");
+  tilesetLoaded = true;
+  tryStart();
+};
+
+itemset.onload = () => {
+  console.log("✅ itemset 読み込み成功");
+  itemsetLoaded = true;
+  tryStart();
+};
 
 // モブキャラのスプライトシート
 const spriteSheet = new Image();
