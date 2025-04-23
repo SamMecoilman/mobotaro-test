@@ -21,7 +21,7 @@ async function loadCsvMap(path) {
 
 export async function loadAllMaps() {
   for (let i = 0; i < FLOOR_COUNT; i++) {
-    tileMaps[i] = await loadCsvMap(`map/floor${i}_tile.csv`);
+    tileMaps[i] = await loadCsvMap(`map/floor0_tile.csv`);
     itemMaps[i] = await loadCsvMap(`map/floor${i}_item.csv`);
   }
 }
