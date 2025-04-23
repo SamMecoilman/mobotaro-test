@@ -61,7 +61,7 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
   for (let y = 0; y < tileMap.length; y++) {
     for (let x = 0; x < tileMap[y].length; x++) {
       const tileId = tileMap[y][x];
-      if (tileId < 0) continue; // ← 無効なIDはスキップ（※これ追加してOK）
+      if (tileId < 0 || isNaN(tileId)) continue; // ← これを追加
       const sx = (tileId % TILESET_COLS) * TILE_SIZE;
       const sy = Math.floor(tileId / TILESET_COLS) * TILE_SIZE;
       
