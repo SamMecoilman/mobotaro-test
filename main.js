@@ -40,9 +40,10 @@ players[myPlayerId] = {
   element: player
 };
 
-player.style.left = x + "px";
-player.style.top = y + "px";
-
+if (player && player.style) {
+  player.style.left = x + "px";
+  player.style.top = y + "px";
+}
 // 他プレイヤー用の画像をロード（差し替え容易にするため変数に格納）
 var otherPlayerImg = new Image();
 otherPlayerImg.src = "images/mob_front_frame_2.png";  // 仮のプレイヤー画像
@@ -134,9 +135,10 @@ document.addEventListener("DOMContentLoaded", () => {
   y = spawn.y;
 
   // プレイヤー位置反映
-  player.style.left = x + "px";
-  player.style.top = y + "px";
-  
+  if (player && player.style) {
+    player.style.left = x + "px";
+    player.style.top = y + "px";
+  }
   // 音量設定
   menuBgm.play();
   document.getElementById("bgmVolume").addEventListener("input", e => {
@@ -685,9 +687,11 @@ function returnToTitle(showMessageAfter = false) {
   const spawn = getRandomSpawnPosition();
   x = spawn.x;
   y = spawn.y;
-  player.style.left = x + "px";
-  player.style.top = y + "px";
-
+  
+  if (player && player.style) {
+    player.style.left = x + "px";
+    player.style.top = y + "px";
+  }
   deathHandled = false;
   isGameStarted = false; // ゲーム終了時に無効化
 
