@@ -8,6 +8,10 @@ let isGameStarted = false;
 // モブキャラのスプライトシート
 const spriteSheet = new Image();
 spriteSheet.crossOrigin = "anonymous"; // ← srcより前に書く
+spriteSheet.onload = () => {
+  // 最初の描画開始（画像読み込み後に）
+  requestAnimationFrame(animate);
+};
 spriteSheet.src = "images/eielIOFX.png";
 
 // 🎮 プレイヤーの状態管理用変数
@@ -215,8 +219,6 @@ function updatePosition() {
   if (!isTileBlocked(newX, newY)) {
     x = snapToGrid(newX);
     y = snapToGrid(newY);
-    player.style.left = x + "px";
-    player.style.top = y + "px";
   }
 }
 
