@@ -1,11 +1,12 @@
 import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
 
-// プレイヤー管理用の配列と自分のプレイヤーID
-var players = [];
-var myPlayerId = 0;
+// 🎨 Canvas初期化：他プレイヤー描画用
+const canvas = document.getElementById("canvas");
+canvas.width = 96 * 32;
+canvas.height = 48 * 32;
+const ctx = canvas.getContext("2d");
 
-// ゲーム中かどうかのフラグ（タイトル画面では false）
-let isGameStarted = false;
+
 
 // マップのスプライトシート
 let tilesetLoaded = false;
@@ -33,6 +34,9 @@ itemset.onload = () => {
   tryStart();
 };
 
+// UIボタンから階層切り替え可能
+window.changeFloor = (i) => changeFloor(i, ctx);
+
 // モブキャラのスプライトシート
 const spriteSheet = new Image();
 spriteSheet.crossOrigin = "anonymous"; // ← srcより前に書く
@@ -41,6 +45,13 @@ spriteSheet.onload = () => {
   requestAnimationFrame(animate);
 };
 spriteSheet.src = "images/eielIOFX.png";
+
+// プレイヤー管理用の配列と自分のプレイヤーID
+var players = [];
+var myPlayerId = 0;
+
+// ゲーム中かどうかのフラグ（タイトル画面では false）
+let isGameStarted = false;
 
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
@@ -99,23 +110,6 @@ var player3 = {
 // players配列に追加
 players.push(player2);
 players.push(player3);
-
-// 🎨 Canvas初期化：他プレイヤー描画用
-const canvas = document.getElementById("canvas");
-canvas.width = 96 * 32;
-canvas.height = 48 * 32;
-const ctx = canvas.getContext("2d");
-
-// onloadで地形とアイテムを描画
-tileset.onload = () => {
-  itemset.onload = () => {
-    drawMapLayers(ctx);
-    requestAnimationFrame(animate);
-  };
-};
-
-// UIボタンから階層切り替え可能
-window.changeFloor = (i) => changeFloor(i, ctx);
 
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
