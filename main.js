@@ -160,7 +160,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 📱 仮想コントローラーの表示判定
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   document.getElementById("mobile-controls").style.display = isMobile ? "flex" : "none";
-
+  });
+});
 // 📱 仮想ボタンの長押し対応（DOMContentLoaded内に正しく設置）
 ["btn-up", "btn-down", "btn-left", "btn-right", "btn-attack"].forEach(id => {
   const btn = document.getElementById(id);
