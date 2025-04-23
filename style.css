@@ -37,11 +37,13 @@ body {
 /* 🎨 Canvas（プレイヤー・敵・背景）描画用 */
 #canvas {
   position: absolute;
+  display: block;
+  margin: 0 auto;
   top: 0;
   left: 0;
   z-index: 1;
-  width: 512px;
-  height: 512px;
+  width: auto;
+  height: auto;
   image-rendering: pixelated; /* ドット絵に最適化 */
   pointer-events: none;       /* クリックなどを無効化 */
 }
