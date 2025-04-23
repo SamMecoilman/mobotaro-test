@@ -237,9 +237,9 @@ function showDamage(amount, target) {
 function checkHit() {
   const playerAtk = players[myPlayerId].atk;
   
-  // 🎵 ランダム攻撃ボイス（mob/attack/voice1〜3.mp3）
+  // 🎵 ランダム攻撃ボイス（mob/attack/voice1〜3.wav）
   const attackVoiceId = Math.floor(Math.random() * 3) + 1;
-  const attackVoice = new Audio(`mob/attack/voice${attackVoiceId}.mp3`);
+  const attackVoice = new Audio(`mob/attack/voice${attackVoiceId}.wav`);
   attackVoice.volume = 0.7;
   attackVoice.play();
 
@@ -623,8 +623,8 @@ function checkEnemyAttack() {
       const damage = isCritical ? 20 : 10;
 
       // 攻撃ボイス（VOICE）
-      const voiceId = Math.floor(Math.random() * 5) + 1;
-      const voice = new Audio(`mob/attack/voice${voiceId}.mp3`);
+      const voiceId = Math.floor(Math.random() * 3) + 1;
+      const voice = new Audio(`mob/attack/voice${voiceId}.wav`);
       voice.volume = 0.7;
       voice.play();
 
