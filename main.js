@@ -434,7 +434,7 @@ function checkLevelUp() {
     leveledUp = true;
     showLevelUpBubble(playerData.level); // ← alert ではなく吹き出し表示に変更
   }
-  if (leveledUp) updateUI(); // 🔄 レベルアップ時のみUI再描画
+  updateUI(); // 🔄 レベルアップしてなくても毎回UI更新
 }
 
 
