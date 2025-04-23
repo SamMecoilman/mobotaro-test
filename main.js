@@ -71,6 +71,16 @@ const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
 const adachiBgm = new Audio("audio/adachi_bgm.mp3");
 
+// モブキャラ（プレイヤー or 他プレイヤー or 敵）攻撃ボイス用（mob/attack/ フォルダにある複数音声）
+const attackVoices = [
+  "mob/attack/voice1.wav",
+  "mob/attack/voice2.wav",
+  "mob/attack/voice3.wav",
+  // 実際のファイル名に合わせて増減OK
+];
+// 通常攻撃SE（固定）
+const normalAttackSE = new Audio("mob/attack_SE/nomal.wav");
+
 // BGMをループ再生に設定し、初期音量を調整
 adachiBgm.loop = true;
 adachiBgm.volume = 0.3;
@@ -547,7 +557,8 @@ function checkEnemyAttack() {
           players[myPlayerId].hp -= 10;
           if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
           updateUI();
-          playRandomAttackSound();
+          // 攻撃前に効果音
+          playEnemyAttackSound();
           showDamage(10, player);
           flashRed(enemy); // ダメージ表示の直後に呼び出す
 
@@ -572,11 +583,15 @@ function checkEnemyAttack() {
 }
 
 // ランダム攻撃SE
-function playRandomAttackSound() {
-  const index = Math.floor(Math.random() * 5); // 例：5ファイル想定
-  const audio = new Audio(`mob/attack/attack_${index + 1}.mp3`);
-  audio.volume = 0.5;
-  audio.play();
+function playEnemyAttackSound() {
+  // ランダムに攻撃ボイスを選択
+  const randomVoicePath = attackVoices[Math.floor(Math.random() * attackVoices.length)];
+  const voiceAudio = new Audio(randomVoicePath);
+  voiceAudio.play();
+
+  // 攻撃SEを再生（ボイスと同時）
+  normalAttackSE.currentTime = 0;
+  normalAttackSE.play();
 }
 
 
