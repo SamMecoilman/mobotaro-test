@@ -204,6 +204,8 @@ function showDamage(amount, target) {
 }
 // 🔍 攻撃が命中するかチェック（プレイヤー vs 全敵＋足立先生）
 function checkHit() {
+  const playerAtk = players[myPlayerId].atk;
+  
   for (let i = 0; i < enemies.length; i++) {
     const enemy = enemies[i];
     const ex = snapToGrid(parseInt(enemy.style.left));
@@ -214,7 +216,7 @@ function checkHit() {
     else if (direction === "left" && ex === x - 32 && ey === y) hit = true;
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
-      showDamage(atk, enemy);
+      showDamage(playerAtk, enemy);
       players[myPlayerId].exp += 25;
       checkLevelUp();
 
@@ -244,9 +246,8 @@ function checkHit() {
     else if (direction === "left" && ax === x - 32 && ay === y) hit = true;
     else if (direction === "right" && ax === x + 32 && ay === y) hit = true;
     if (hit) {
-      const atkVal = players[myPlayerId].atk;
-      showDamage(atkVal, enemy);
-      adachiHp -= atkVal;
+      showDamage(playerAtk, enemy);
+      adachiHp -= playerAtk;
       if (adachiHp <= 0) {
         adachi.remove();
         adachiExists = false;
