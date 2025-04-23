@@ -251,6 +251,42 @@ function showDamage(amount, target) {
 // 🔍 攻撃が命中するかチェック（プレイヤー vs 全敵＋足立先生）
 function checkHit() {
   const playerAtk = players[myPlayerId].atk;
+
+  // 敵が目の前にいない場合は攻撃できない（SE/ボイスも出さない）
+  let targetFound = false;
+  const dxdy = { front: [0, 32], back: [0, -32], left: [-32, 0], right: [32, 0] };
+  const [dx, dy] = dxdy[direction] || [0, 0];
+  const tx = x + dx;
+  const ty = y + dy;
+  
+  for (let enemy of enemies) {
+    const ex = snapToGrid(parseInt(enemy.style.left));
+    const ey = snapToGrid(parseInt(enemy.style.top));
+    if (ex === tx && ey === ty) {
+      targetFound = true;
+      break;
+    }
+  }
+  if (!targetFound) {
+    const adachi = document.getElementById("adachi");
+    if (adachi) {
+      const ax = snapToGrid(parseInt(adachi.style.left));
+      const ay = snapToGrid(parseInt(adachi.style.top));
+      if (ax === tx && ay === ty) targetFound = true;
+    }
+  }
+  for (let i = 0; i < players.length; i++) {
+    if (i === myPlayerId) continue;
+    const p = players[i];
+    if (!p || !p.hp || !p.element) continue;
+    const px = snapToGrid(p.x);
+    const py = snapToGrid(p.y);
+    if (px === tx && py === ty) {
+      targetFound = true;
+      break;
+    }
+  }
+  if (!targetFound) return;
   
   // 🎵 ランダム攻撃ボイス（mob/attack/voice1〜3.wav）
   const attackVoiceId = Math.floor(Math.random() * 3) + 1;
