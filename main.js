@@ -237,6 +237,12 @@ function showDamage(amount, target) {
 function checkHit() {
   const playerAtk = players[myPlayerId].atk;
   
+  // 🎵 ランダム攻撃ボイス（mob/attack/ 配下）
+  const attackVoiceId = Math.floor(Math.random() * 5) + 1;
+  const attackVoice = new Audio(`mob/attack/voice${attackVoiceId}.mp3`);
+  attackVoice.volume = 0.7;
+  attackVoice.play();
+
   for (let i = 0; i < enemies.length; i++) {
     const enemy = enemies[i];
     const ex = snapToGrid(parseInt(enemy.style.left));
