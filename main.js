@@ -2,8 +2,8 @@ import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./map
 
 // 🎨 Canvas初期化：他プレイヤー描画用
 const canvas = document.getElementById("canvas");
-canvas.width = 96 * 32;
-canvas.height = 48 * 32;
+canvas.width = 32 * 32;
+canvas.height = 32 * 32;
 const ctx = canvas.getContext("2d");
 
 // マップのスプライトシート
