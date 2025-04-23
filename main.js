@@ -717,12 +717,18 @@ function returnToTitle(showMessageAfter = false) {
 // 🎹 キー操作で移動 or 攻撃
 window.addEventListener("keydown", e => {
   if (!isGameStarted) return; // ✅ タイトル画面では無視
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+    e.preventDefault(); // ← デフォルトのスクロールを無効化
+  }
   if (e.key.startsWith("Arrow")) keys[e.key] = true;
   if (e.key === " ") checkHit();
 });
 
 window.addEventListener("keyup", e => {
   if (!isGameStarted) return; // ✅ タイトル画面では無視
+  if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
+    e.preventDefault(); // ← デフォルトのスクロールを無効化
+  }
   if (e.key.startsWith("Arrow")) keys[e.key] = false;
 });
 
