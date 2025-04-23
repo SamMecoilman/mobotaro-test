@@ -108,7 +108,7 @@ for (var i = 0; i < players.length; i++) {
     if (p && p.visible && p.hp > 0) {
         // プレイヤーの画像を座標(x, y)に描画
         const otherFrameY = 1; // 例：下向き固定
-        ctx.drawImage(spriteSheet, frameIndex * 32, otherFrameY * 32, 32, 32, p.x, p.y, 32, 32);
+        ctx.drawImage(spriteSheet, frameIndex * 32, otherFrameY * 32, 32, 32, p.x, p.y, 48, 48);
     }
 }
 
@@ -380,7 +380,7 @@ function animate() {
     frameY * 32,           // ← Y位置（方向行）
     32, 32,                // ← 切り出しサイズ（32x32）
     x, y,                  // ← 描画先（プレイヤー座標）
-    32, 32                 // ← 描画サイズ（そのまま等倍）
+    48, 48                 // ← 描画サイズ（そのまま等倍）
   );
 
   // 他プレイヤーなども再描画（必要ならここに追加）
