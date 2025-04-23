@@ -74,11 +74,19 @@ body {
   color: #ccc;                   /* 薄いグレー文字で控えめな印象に */
 }
 
-/* 💬 敵のセリフふきだし */
+/* 💬 汎用吹き出しスタイル（敵・レベルアップ共通） */
 .bubble {
   font-family: sans-serif;
+  background: white;
+  color: black;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 999;
+  position: absolute;
+  pointer-events: none;
   animation: bubble-fade 1.5s ease-out forwards;
-  pointer-events: none;           /* マウス無効化 */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 /* 💨 フキダシのフェードアニメーション */
