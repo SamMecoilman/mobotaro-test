@@ -178,12 +178,18 @@ function snapToGrid(value) {
 }
 
 function getRandomSpawnPosition() {
-  const maxTiles = 16;
+  const mapWidth = canvas.width;
+  const mapHeight = canvas.height;
+  const tileSize = 32;
+  
+  const maxTilesX = Math.floor(mapWidth / tileSize);
+  const maxTilesY = Math.floor(mapHeight / tileSize);
+  
   let tries = 0;
   let px, py;
   do {
-    px = Math.floor(Math.random() * maxTiles) * 32;
-    py = Math.floor(Math.random() * maxTiles) * 32;
+    px = Math.floor(Math.random() * maxTilesX) * tileSize;
+    py = Math.floor(Math.random() * maxTilesY) * tileSize;
     tries++;
   } while (isTileBlocked(px, py) && tries < 50);
   return { x: px, y: py };
