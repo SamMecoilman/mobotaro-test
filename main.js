@@ -228,16 +228,21 @@ function showDamage(amount, target) {
   dmg.className = "damage";
   dmg.textContent = amount + "!";
 
-  if (!target || typeof target.getBoundingClientRect !== "function") {
-    // fallback: canvas座標ベースに表示
-    dmg.style.position = "absolute";
-    dmg.style.left = (x + 10) + "px";  // プレイヤーのx座標に補正
-    dmg.style.top = (y - 20) + "px";   // プレイヤーのy座標上に表示
-  } else {
+  let px = 0;
+  let py = 0;
+  if (target && typeof target.getBoundingClientRect === "function") {
     const rect = target.getBoundingClientRect();
-    dmg.style.left = (rect.left + 5) + "px";
-    dmg.style.top = (rect.top - 20) + "px";
+    px = rect.left + 5;
+    py = rect.top - 20;
+  } else {
+    const canvasRect = canvas.getBoundingClientRect();
+    px = canvasRect.left + x + 10;
+    py = canvasRect.top + y - 20;
   }
+  
+  dmg.style.position = "absolute";
+  dmg.style.left = px + "px";
+  dmg.style.top = py + "px";
 
   document.body.appendChild(dmg);
   setTimeout(() => dmg.remove(), 1000);
