@@ -230,20 +230,23 @@ function checkHit() {
     else if (direction === "right" && ex === x + 32 && ey === y) hit = true;
     if (hit) {
       // 敵のHP処理を追加（耐久力を持たせる）
-      enemy.hp = (enemy.hp || 30) - playerAtk;
-    
+      let currentHp = parseInt(enemy.dataset.hp || "30");
+      currentHp -= playerAtk;
+      enemy.dataset.hp = currentHp;
+      
       showDamage(playerAtk, enemy);
+      
       if (enemy.dataset.type === 'passive') enemy.dataset.type = 'aggressive';
-    
+      
       // 💬 吹き出し削除（もし表示中なら）
       const bubbleId = enemy.dataset.bubbleId;
       if (bubbleId) {
         const bubble = document.querySelector(`[data-owner-id="${bubbleId}"]`);
         if (bubble) bubble.remove();
       }
-    
+      
       // HPが0以下なら削除と経験値処理
-      if (enemy.hp <= 0) {
+      if (currentHp <= 0) {
         if (enemy.moveTimer) clearTimeout(enemy.moveTimer);
         enemy.remove();
         enemies.splice(i, 1);
@@ -416,7 +419,7 @@ function spawnEnemy() {
 
   const enemy = document.createElement("img");
   enemy.dataset.type = Math.random() < 0.5 ? 'passive' : 'aggressive';
-  enemy.dataset.hp = '30'; // プレイヤーの攻撃（15）を2回耐える
+  enemy.dataset.hp = 30; // プレイヤーの攻撃（15）を2回耐える
   enemy.src = "images/enemy.png";
   enemy.className = "enemy";
   enemy.style.position = "absolute";
