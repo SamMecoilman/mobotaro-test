@@ -19,6 +19,8 @@ function tryStart() {
   }
 }
 
+tileset.onerror = () => console.error("❌ tileset 読み込み失敗：パスミスか破損");
+
 tileset.onload = () => {
   console.log("✅ tileset 読み込み成功");
   tilesetLoaded = true;
