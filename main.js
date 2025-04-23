@@ -262,28 +262,28 @@ for (let i = 0; i < players.length; i++) {
   const p = players[i];
   if (!p || !p.hp || !p.element) continue;
 
-  const px = snapToGrid(p.x);
-  const py = snapToGrid(p.y);
-
-  let hit = false;
-  if (direction === "front" && px === x && py === y + 32) hit = true;
-  else if (direction === "back" && px === x && py === y - 32) hit = true;
-  else if (direction === "left" && px === x - 32 && py === y) hit = true;
-  else if (direction === "right" && px === x + 32 && py === y) hit = true;
-
-  if (hit) {
-    p.hp -= atk;
-    showDamage(atk, p.element);
-    if (p.hp <= 0) {
-      if (hp <= 0 && player) {
-        player.remove();
+    const px = snapToGrid(p.x);
+    const py = snapToGrid(p.y);
+  
+    let hit = false;
+    if (direction === "front" && px === x && py === y + 32) hit = true;
+    else if (direction === "back" && px === x && py === y - 32) hit = true;
+    else if (direction === "left" && px === x - 32 && py === y) hit = true;
+    else if (direction === "right" && px === x + 32 && py === y) hit = true;
+  
+    if (hit) {
+      p.hp -= atk;
+      showDamage(atk, p.element);
+      if (p.hp <= 0) {
+        if (hp <= 0 && player) {
+          player.remove();
+        }
+        p.element.remove();
+        p.hp = 0;
       }
-      p.element.remove();
-      p.hp = 0;
+      return;
     }
-    return;
   }
-}
 }
 
 // 📢 レベルアップの吹き出し表示
