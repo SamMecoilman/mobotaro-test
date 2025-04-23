@@ -547,7 +547,9 @@ function checkEnemyAttack() {
           players[myPlayerId].hp -= 10;
           if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
           updateUI();
+          playRandomAttackSound();
           showDamage(10, player);
+          flashRed(enemy); // ダメージ表示の直後に呼び出す
 
           if (players[myPlayerId].hp <= 0 && !deathHandled) {
             deathHandled = true;
@@ -569,7 +571,23 @@ function checkEnemyAttack() {
   }
 }
 
+// ランダム攻撃SE
+function playRandomAttackSound() {
+  const index = Math.floor(Math.random() * 5); // 例：5ファイル想定
+  const audio = new Audio(`mob/attack/attack_${index + 1}.mp3`);
+  audio.volume = 0.5;
+  audio.play();
+}
 
+
+// 敵が攻撃した瞬間、赤くフラッシュ
+function flashRed(target) {
+  target.style.transition = "filter 0.1s";
+  target.style.filter = "brightness(2) sepia(1) hue-rotate(-50deg) saturate(5)";
+  setTimeout(() => {
+    target.style.filter = "";
+  }, 100);
+}
 
 function returnToTitle(showMessageAfter = false) {
   document.getElementById("game").style.display = "none";
