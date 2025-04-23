@@ -496,8 +496,11 @@ function bindButtonHold(buttonId, key) {
   btn.addEventListener("touchcancel", () => clearInterval(interval));
 }
 
+// 最終攻撃時間を追跡するマップ
+const enemyAttackTimestamps = new Map();
 // ⛔ プレイヤーを攻撃するロジック（敵モブが隣接していたら攻撃）
 function checkEnemyAttack() {
+  const now = Date.now();
   for (let enemy of enemies) {
     const ex = snapToGrid(parseInt(enemy.style.left));
     const ey = snapToGrid(parseInt(enemy.style.top));
@@ -509,14 +512,19 @@ function checkEnemyAttack() {
       (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
-      players[myPlayerId].hp -= 10;
-      if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
-      updateUI();
-      showDamage(10, player);
-      
-      if (players[myPlayerId].hp <= 0 && !deathHandled) {
-        deathHandled = true;
-        setTimeout(() => returnToTitle(true), 100);
+      const lastAttackTime = enemyAttackTimestamps.get(enemy) || 0;
+      if (now - lastAttackTime >= 1000) {
+        players[myPlayerId].hp -= 10;
+        if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
+        updateUI();
+        showDamage(10, player);
+
+        if (players[myPlayerId].hp <= 0 && !deathHandled) {
+          deathHandled = true;
+          setTimeout(() => returnToTitle(true), 100);
+        }
+
+        enemyAttackTimestamps.set(enemy, now);
       }
       break;
     }
@@ -532,23 +540,31 @@ function returnToTitle(showMessageAfter = false) {
   menuBgm.currentTime = 0;
   menuBgm.play();
 
-  // HPなどをリセット（ランダムリスポーン対応）
+  // プレイヤーステータスをリセット
+  const playerData = players[myPlayerId];
+  playerData.hp = 100;
+  playerData.maxHp = 100;
+  playerData.atk = 15;
+  playerData.exp = 0;
+  playerData.level = 1;
+  playerData.nextLevelExp = 100;
+
+  updateUI();
+
+  // プレイヤー位置をランダムに設定
   const spawn = getRandomSpawnPosition();
   x = spawn.x;
   y = spawn.y;
-  players[myPlayerId].x = x;
-  players[myPlayerId].y = y;
-  players[myPlayerId].hp = players[myPlayerId].maxHp;
-  updateUI();
   player.style.left = x + "px";
   player.style.top = y + "px";
 
-  deathHandled = false; // ✅ 死亡フラグリセット
+  deathHandled = false;
 
   if (showMessageAfter) {
-    setTimeout(() => alert("あなたはやられた！"), 300); // ✅ 一度だけalertを出す
+    setTimeout(() => alert("あなたはやられた！"), 300);
   }
 }
+
 
 
 // 🎹 キー操作で移動 or 攻撃
