@@ -12,6 +12,7 @@ tileset.onload = () => {
   itemset.onload = () => {
     console.log("✅ itemset 読み込み完了");
     drawMapLayers(ctx);
+    console.log("🖌️ drawMapLayers 実行");
     requestAnimationFrame(animate);
   };
   itemset.onerror = () => console.error("❌ itemset 読み込み失敗");
