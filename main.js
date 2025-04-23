@@ -77,6 +77,8 @@ players.push(player3);
 
 // 🎨 Canvas初期化：他プレイヤー描画用
 const canvas = document.getElementById("canvas");
+canvas.width = 96 * 32;
+canvas.height = 48 * 32;
 const ctx = canvas.getContext("2d");
 
 // onloadで地形とアイテムを描画
