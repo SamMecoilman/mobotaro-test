@@ -6,18 +6,31 @@ canvas.width = 32 * 32;
 canvas.height = 32 * 32;
 const ctx = canvas.getContext("2d");
 
+
+// マップ画像の読み込みフラグ
+let tilesetLoaded = false;
+let itemsetLoaded = false;
+
 // マップのスプライトシート
-tileset.onload = () => {
-  console.log("✅ tileset 読み込み完了");
-  itemset.onload = () => {
-    console.log("✅ itemset 読み込み完了");
+function tryStartDrawing() {
+  if (tilesetLoaded && itemsetLoaded && tileMaps[0] && itemMaps[0]) {
     drawMapLayers(ctx);
     console.log("🖌️ drawMapLayers 実行");
     requestAnimationFrame(animate);
-  };
-  itemset.onerror = () => console.error("❌ itemset 読み込み失敗");
+  }
+}
+
+tileset.onload = () => {
+  console.log("✅ tileset 読み込み完了");
+  tilesetLoaded = true;
+  tryStartDrawing();
 };
-tileset.onerror = () => console.error("❌ tileset 読み込み失敗");
+itemset.onload = () => {
+  console.log("✅ itemset 読み込み完了");
+  itemsetLoaded = true;
+  tryStartDrawing();
+};
+
 
 
 // UIボタンから階層切り替え可能
@@ -164,6 +177,9 @@ document.addEventListener("DOMContentLoaded", () => {
       await loadAllMaps();
       console.log("🗺 マップデータ読み込み完了");
 
+      // 🔄 タイルセットとアイテムセットの読み込みが終わっていれば描画
+      tryStartDrawing();
+      
       // 🎯 プレイヤーの初期スポーン座標を決定
       const spawn = getRandomSpawnPosition();
       x = spawn.x;
