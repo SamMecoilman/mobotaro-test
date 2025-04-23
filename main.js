@@ -1,7 +1,6 @@
 import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
 tileset.onload = () => {
-  const dummyMap = createDummyTileMap(0);
-  drawTileLayer(dummyMap, tileset, ctx);
+  console.log("✅ tileset 読み込み成功", tileset.width, tileset.height);
 };
 
 // プレイヤー管理用の配列と自分のプレイヤーID
