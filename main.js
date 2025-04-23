@@ -227,12 +227,22 @@ function showDamage(amount, target) {
   const dmg = document.createElement("div");
   dmg.className = "damage";
   dmg.textContent = amount + "!";
-  const rect = target.getBoundingClientRect();
-  dmg.style.left = (rect.left + 5) + "px";
-  dmg.style.top = (rect.top - 20) + "px";
+
+  if (!target || typeof target.getBoundingClientRect !== "function") {
+    // fallback: canvas座標ベースに表示
+    dmg.style.position = "absolute";
+    dmg.style.left = (x + 10) + "px";  // プレイヤーのx座標に補正
+    dmg.style.top = (y - 20) + "px";   // プレイヤーのy座標上に表示
+  } else {
+    const rect = target.getBoundingClientRect();
+    dmg.style.left = (rect.left + 5) + "px";
+    dmg.style.top = (rect.top - 20) + "px";
+  }
+
   document.body.appendChild(dmg);
   setTimeout(() => dmg.remove(), 1000);
 }
+
 // 🔍 攻撃が命中するかチェック（プレイヤー vs 全敵＋足立先生）
 function checkHit() {
   const playerAtk = players[myPlayerId].atk;
