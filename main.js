@@ -7,10 +7,9 @@ let isGameStarted = false;
 
 // モブキャラのスプライトシート
 const spriteSheet = new Image();
+spriteSheet.crossOrigin = "anonymous"; // ← srcより前に書く
 spriteSheet.src = "images/eielIOFX.png";
-spriteSheet.onload = () => {
-  spriteSheet.crossOrigin = "anonymous"; // 🔍 透過対策（CORS）
-};
+
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x, y;
