@@ -340,8 +340,8 @@ function showLevelUpBubble(level) {
   msg.dataset.ownerId = bubbleId;
   msg.textContent = `🎉 Lv.${level}にアップ！`;
 
-  msg.style.left = player.style.left;
-  msg.style.top = `${parseInt(player.style.top) - 32}px`;
+  msg.style.left = `${x}px`;
+  msg.style.top = `${y - 32}px`;
 
   document.getElementById("map").appendChild(msg);
   setTimeout(() => msg.remove(), 1500);
