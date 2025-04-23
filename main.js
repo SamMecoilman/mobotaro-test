@@ -5,6 +5,10 @@ var myPlayerId = 0;
 // ゲーム中かどうかのフラグ（タイトル画面では false）
 let isGameStarted = false;
 
+// モブキャラのスプライトシート
+const spriteSheet = new Image();
+spriteSheet.src = "images/eielIOFX.png";
+
 // 🎮 プレイヤーの状態管理用変数
 const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false };
 let x, y;
@@ -340,12 +344,33 @@ function checkLevelUp() {
 
 
 // 🎞️ 歩行アニメーション処理
+// canvas に描画するための animate
 function animate() {
   updatePosition();
   checkEnemyAttack();
+
   const now = Date.now();
   frameIndex = (frameIndex + 1) % 3;
-  player.src = `images/mob_${direction}_frame_${frameIndex + 1}.png`;
+
+  // 各方向を行番号にマッピング
+  const directionMap = { front: 0, back: 1, left: 2, right: 3 };
+  const frameY = directionMap[direction] ?? 0;
+
+  // canvasを消去して再描画（背景がある場合は差し替え要）
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // プレイヤーのスプライトを描画
+  ctx.drawImage(
+    spriteSheet,
+    frameIndex * 32,       // ← X位置（フレーム列）
+    frameY * 32,           // ← Y位置（方向行）
+    32, 32,                // ← 切り出しサイズ（32x32）
+    x, y,                  // ← 描画先（プレイヤー座標）
+    32, 32                 // ← 描画サイズ（そのまま等倍）
+  );
+
+  // 他プレイヤーなども再描画（必要ならここに追加）
+
   setTimeout(() => requestAnimationFrame(animate), 150);
 }
 
