@@ -18,11 +18,12 @@
   <!-- ゲーム画面（初期状態は非表示） -->
   <div id="game" style="display: none;">
     <!-- ステータス表示UI（HPと攻撃力） -->
-    <div id="ui">
-      <div>HP: <span id="hp">100</span></div> <!-- HP表示（初期値100） -->
-      <div>ATK: <span id="atk">15</span></div> <!-- 攻撃力表示（初期値15） -->
+    <div id="ui" style="position: fixed; top: 10px; right: 10px; color: white; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px; z-index: 999;">
+      <div>HP: <span id="hp">100</span></div>
+      <div>ATK: <span id="atk">15</span></div>
+      <div>LV: <span id="level">1</span></div>
+      <div>EXP: <span id="exp">0/100</span></div>
     </div>
-
     <!-- ゲームマップ部分 -->
     <div id="map">
       <!-- プレイヤーキャラの画像 -->
