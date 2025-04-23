@@ -71,11 +71,11 @@ const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
 const adachiBgm = new Audio("audio/adachi_bgm.mp3");
 
-// モブキャラ（プレイヤー or 他プレイヤー or 敵）攻撃ボイス用（mob/attack/ フォルダにある複数音声）
-const attackVoices = [
-  "mob/attack/voice1.wav",
-  "mob/attack/voice2.wav",
-  "mob/attack/voice3.wav",
+// モブキャラ（プレイヤー or 他プレイヤー or 敵）ダメージボイス用（mob/damage/ フォルダにある複数音声）
+const damageVoices = [
+  "mob/damage/voice1.wav",
+  "mob/damage/voice2.wav",
+  "mob/damage/voice3.wav",
   // 実際のファイル名に合わせて増減OK
 ];
 // 通常攻撃SE（固定）
@@ -582,14 +582,14 @@ function checkEnemyAttack() {
   }
 }
 
-// ランダム攻撃SE
+// ランダムダメージVoice & SE
 function playEnemyAttackSound() {
-  // ランダムに攻撃ボイスを選択
-  const randomVoicePath = attackVoices[Math.floor(Math.random() * attackVoices.length)];
+  // ランダムにダメージボイスを選択
+  const randomVoicePath = damageVoices[Math.floor(Math.random() * damageVoices.length)];
   const voiceAudio = new Audio(randomVoicePath);
   voiceAudio.play();
 
-  // 攻撃SEを再生（ボイスと同時）
+  // ダメージSEを再生（ボイスと同時）
   normalAttackSE.currentTime = 0;
   normalAttackSE.play();
 }
