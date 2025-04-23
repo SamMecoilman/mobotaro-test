@@ -76,6 +76,23 @@ players.push(player3);
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
+// ⛳ マップ描画・階層切り替え用モジュールの読み込み
+import {
+  tileset, itemset,
+  drawMapLayers, changeFloor
+} from "./mapRenderer.js";
+
+// onloadで地形とアイテムを描画
+tileset.onload = () => {
+  itemset.onload = () => {
+    drawMapLayers(ctx);
+    requestAnimationFrame(animate);
+  };
+};
+
+// UIボタンから階層切り替え可能
+window.changeFloor = (i) => changeFloor(i, ctx);
+
 // 🎵 各種BGMの読み込みと設定
 const menuBgm = new Audio("audio/menu_bgm.mp3");
 const gameBgm = new Audio("audio/game_bgm.mp3");
