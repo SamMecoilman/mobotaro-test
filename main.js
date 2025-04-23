@@ -518,9 +518,8 @@ function bindButtonHold(buttonId, key) {
 
 // 最終攻撃時間を追跡するマップ
 const enemyAttackTimestamps = new Map();
-// ⛔ プレイヤーを攻撃するロジック（敵モブが隣接していたら攻撃）
+// ⛔ プレイヤーを攻撃するロジック（敵モブが隣接していたら1秒後に攻撃）
 function checkEnemyAttack() {
-  const now = Date.now();
   for (let enemy of enemies) {
     const ex = snapToGrid(parseInt(enemy.style.left));
     const ey = snapToGrid(parseInt(enemy.style.top));
@@ -532,24 +531,44 @@ function checkEnemyAttack() {
       (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
-      const lastAttackTime = enemyAttackTimestamps.get(enemy) || 0;
-      if (now - lastAttackTime >= 1000) {
-        players[myPlayerId].hp -= 10;
-        if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
-        updateUI();
-        showDamage(10, player);
+      // すでに攻撃予約があるなら何もしない
+      if (enemy.attackTimeout) return;
 
-        if (players[myPlayerId].hp <= 0 && !deathHandled) {
-          deathHandled = true;
-          setTimeout(() => returnToTitle(true), 100);
+      // 攻撃を1秒後に予約
+      enemy.attackTimeout = setTimeout(() => {
+        // まだ隣接しているか確認
+        const stillAdjacent =
+          (x === ex && y === ey - 32) ||
+          (x === ex && y === ey + 32) ||
+          (x === ex - 32 && y === ey) ||
+          (x === ex + 32 && y === ey);
+
+        if (stillAdjacent) {
+          players[myPlayerId].hp -= 10;
+          if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
+          updateUI();
+          showDamage(10, player);
+
+          if (players[myPlayerId].hp <= 0 && !deathHandled) {
+            deathHandled = true;
+            setTimeout(() => returnToTitle(true), 100);
+          }
         }
 
-        enemyAttackTimestamps.set(enemy, now);
+        enemy.attackTimeout = null; // 次の攻撃のためにリセット
+      }, 1000);
+
+      break; // 一体の敵からのみ攻撃されるように
+    } else {
+      // 離れたらタイマー解除
+      if (enemy.attackTimeout) {
+        clearTimeout(enemy.attackTimeout);
+        enemy.attackTimeout = null;
       }
-      break;
     }
   }
 }
+
 
 
 function returnToTitle(showMessageAfter = false) {
