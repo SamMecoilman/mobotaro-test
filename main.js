@@ -416,6 +416,8 @@ function checkLevelUp() {
     updateUI();
     showLevelUpBubble(playerData.level); // ← alert ではなく吹き出し表示に変更
   }
+  // 🔄 経験値バーの表示を強制的に同期
+  updateUI();
 }
 
 
