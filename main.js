@@ -1,6 +1,7 @@
 import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
 tileset.onload = () => {
-  console.log("✅ tileset 読み込み成功", tileset.width, tileset.height);
+  ctx.drawImage(tileset, 0, 0, 32, 32, 0, 0, 32, 32); // 左上に1マスタイル表示
+  console.log("🧱 タイル1枚を描画した");
 };
 
 // プレイヤー管理用の配列と自分のプレイヤーID
