@@ -10,8 +10,21 @@ tileset.src = "images/map.png";
 export const itemset = new Image();
 itemset.src = "images/item.png";
 
-export const tileMaps = Array.from({ length: FLOOR_COUNT }, (_, i) => createDummyTileMap(i));
-export const itemMaps = Array.from({ length: FLOOR_COUNT }, (_, i) => createDummyItemMap(i));
+export const tileMaps = Array(FLOOR_COUNT).fill(null);
+export const itemMaps = Array(FLOOR_COUNT).fill(null);
+
+async function loadCsvMap(path) {
+  const res = await fetch(path);
+  const text = await res.text();
+  return text.trim().split("\n").map(line => line.split(",").map(Number));
+}
+
+export async function loadAllMaps() {
+  for (let i = 0; i < FLOOR_COUNT; i++) {
+    tileMaps[i] = await loadCsvMap(`map/floor${i}_tile.csv`);
+    itemMaps[i] = await loadCsvMap(`map/floor${i}_item.csv`);
+  }
+}
 
 export function createDummyTileMap(offset) {
   const map = [];
@@ -67,13 +80,14 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 }
 
 export function drawMapLayers(ctx) {
+  if (!ctx) return;
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMaps[floorIndex], tileset, ctx);
   drawItemLayer(itemMaps[floorIndex], itemset, ctx);
 }
 
-export function changeFloor(newFloor) {
+export function changeFloor(newFloor, ctx) {
   floorIndex = newFloor;
-  drawMapLayers();
+  drawMapLayers(ctx);
 }
 
