@@ -357,7 +357,7 @@ function animate() {
   frameIndex = (frameIndex + 1) % 3;
 
   // 各方向を行番号にマッピング
-  const directionMap = { back: 0, front: 1, left: 3, right: 2 };
+  const directionMap = { front: 0, left: 1, right: 2, back: 3 };
   const frameY = directionMap[direction] ?? 0;
 
   // canvasを消去して再描画（背景がある場合は差し替え要）
