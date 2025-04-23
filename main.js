@@ -1,3 +1,6 @@
+import { tileset, itemset, drawMapLayers, changeFloor, loadAllMaps } from "./mapRenderer.js";
+
+
 // プレイヤー管理用の配列と自分のプレイヤーID
 var players = [];
 var myPlayerId = 0;
@@ -151,37 +154,54 @@ function isTileBlocked(xPos, yPos) {
   return false;
 }
 
-// 🔧 ページ読み込み時のすべての初期化処理を統合
+// 🔧 DOMの読み込みが完了したタイミングで初期化処理を実行
 document.addEventListener("DOMContentLoaded", () => {
-  const spawn = getRandomSpawnPosition(); // 
-  x = spawn.x;
-  y = spawn.y;
+  // 🧠 即時実行関数（async IIFE）で非同期処理を安全に実行
+  (async () => {
+    try {
+      // 🗺 外部CSVからマップデータを一括読み込み（メモリキャッシュ）
+      await loadAllMaps();
+      console.log("🗺 マップデータ読み込み完了");
 
-  // プレイヤー位置反映
-  if (player && player.style) {
-    player.style.left = x + "px";
-    player.style.top = y + "px";
-  }
-  // 音量設定
-  menuBgm.play();
-  document.getElementById("bgmVolume").addEventListener("input", e => {
-    const vol = parseFloat(e.target.value);
-    menuBgm.volume = vol;
-    gameBgm.volume = vol;
-  });
+      // 🎯 プレイヤーの初期スポーン座標を決定
+      const spawn = getRandomSpawnPosition();
+      x = spawn.x;
+      y = spawn.y;
 
-  // ESCキーでCONFIGトグル
-  document.addEventListener("keydown", e => {
-    if (e.key === "Escape") {
-      const panel = document.getElementById("configPanel");
-      panel.style.display = panel.style.display === "none" ? "block" : "none";
+      // 🎮 プレイヤーの座標をスタイルへ反映（※canvas管理時は未使用の可能性あり）
+      if (player && player.style) {
+        player.style.left = x + "px";
+        player.style.top = y + "px";
+      }
+
+      // 🎵 タイトル画面のBGMを再生
+      menuBgm.play();
+
+      // 🎚️ 音量スライダーの値をBGM・ゲームBGMへ反映
+      document.getElementById("bgmVolume").addEventListener("input", e => {
+        const vol = parseFloat(e.target.value);
+        menuBgm.volume = vol;
+        gameBgm.volume = vol;
+      });
+
+      // 🧩 ESCキーで設定パネルの表示/非表示を切り替え
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+          const panel = document.getElementById("configPanel");
+          panel.style.display = panel.style.display === "none" ? "block" : "none";
+        }
+      });
+
+      // 📱 モバイル判定による仮想コントローラーの表示切り替え
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      document.getElementById("mobile-controls").style.display = isMobile ? "flex" : "none";
+
+    } catch (e) {
+      // ❗マップ読み込み失敗時のエラーハンドリング
+      console.error("マップの読み込みに失敗しました", e);
     }
-  });
-
-  // 📱 仮想コントローラーの表示判定
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  document.getElementById("mobile-controls").style.display = isMobile ? "flex" : "none";
-  });
+  })();
+});
 
 // 📱 仮想ボタンの長押し対応（DOMContentLoaded内に正しく設置）
 ["btn-up", "btn-down", "btn-left", "btn-right", "btn-attack"].forEach(id => {
