@@ -541,46 +541,48 @@ function checkEnemyAttack() {
       (x === ex + 32 && y === ey);
 
     if (isAdjacent) {
-      // すでに攻撃予約があるなら何もしない
-      if (enemy.attackTimeout) return;
+      // 1秒間隔で攻撃（再攻撃防止用タイマー）
+      if (enemy.lastAttack && Date.now() - enemy.lastAttack < 1000) continue;
+      enemy.lastAttack = Date.now();
 
-      // 攻撃を1秒後に予約
-      enemy.attackTimeout = setTimeout(() => {
-        // まだ隣接しているか確認
-        const stillAdjacent =
-          (x === ex && y === ey - 32) ||
-          (x === ex && y === ey + 32) ||
-          (x === ex - 32 && y === ey) ||
-          (x === ex + 32 && y === ey);
+      // 🔥 クリティカル判定（20%）
+      const isCritical = Math.random() < 0.2;
+      const damage = isCritical ? 20 : 10;
 
-        if (stillAdjacent) {
-          players[myPlayerId].hp -= 10;
-          if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
-          updateUI();
-          // 攻撃前に効果音
-          playEnemyAttackSound();
-          showDamage(10, player);
-          flashRed(enemy); // ダメージ表示の直後に呼び出す
-
-          if (players[myPlayerId].hp <= 0 && !deathHandled) {
-            deathHandled = true;
-            setTimeout(() => returnToTitle(true), 100);
-          }
-        }
-
-        enemy.attackTimeout = null; // 次の攻撃のためにリセット
-      }, 1000);
-
-      break; // 一体の敵からのみ攻撃されるように
-    } else {
-      // 離れたらタイマー解除
-      if (enemy.attackTimeout) {
-        clearTimeout(enemy.attackTimeout);
-        enemy.attackTimeout = null;
+      // 🔊 サウンド再生
+      if (isCritical) {
+        const critSE = new Audio("mob/attack_SE/critical.wav");
+        critSE.volume = 0.6;
+        critSE.play();
+      } else {
+        const normSE = new Audio("mob/attack_SE/nomal.wav");
+        normSE.volume = 0.5;
+        normSE.play();
       }
+
+      // 💥 エフェクト（攻撃時の赤フラッシュ）
+      enemy.classList.add("enemy-attack-flash");
+      setTimeout(() => enemy.classList.remove("enemy-attack-flash"), 150);
+
+      // 💥 プレイヤーにダメージ
+      players[myPlayerId].hp -= damage;
+      if (players[myPlayerId].hp < 0) players[myPlayerId].hp = 0;
+
+      updateUI();
+      showDamage(damage, player);
+
+      if (players[myPlayerId].hp <= 0 && !deathHandled) {
+        deathHandled = true;
+        setTimeout(() => returnToTitle(true), 100);
+      }
+
+      break;
+    } else {
+      enemy.lastAttack = 0; // 🧹 離れたらタイマー解除
     }
   }
 }
+
 
 // ランダムダメージVoice & SE
 function playEnemyAttackSound() {
