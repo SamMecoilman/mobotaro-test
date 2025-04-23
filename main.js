@@ -79,12 +79,6 @@ players.push(player3);
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// ⛳ マップ描画・階層切り替え用モジュールの読み込み
-import {
-  tileset, itemset,
-  drawMapLayers, changeFloor
-} from "./mapRenderer.js";
-
 // onloadで地形とアイテムを描画
 tileset.onload = () => {
   itemset.onload = () => {
