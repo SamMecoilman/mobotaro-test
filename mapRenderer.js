@@ -72,8 +72,7 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
       
       const sx = (tileId % TILESET_COLS) * TILE_SIZE;
       const sy = Math.floor(tileId / TILESET_COLS) * TILE_SIZE;
-      console.log(`描画: tileId=${tileId}, sx=${sx}, sy=${sy}, drawX=${x * TILE_SIZE}, drawY=${y * TILE_SIZE}`);
-
+  
       ctx.drawImage(
         tilesetImage,
         sx, sy, TILE_SIZE, TILE_SIZE,
