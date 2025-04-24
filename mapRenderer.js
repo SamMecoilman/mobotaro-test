@@ -65,14 +65,14 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
     for (let x = 0; x < tileMap[y].length; x++) {
       const tileId = tileMap[y][x];
       if (tileId < 0 || isNaN(tileId)) continue; // ← これを追加
+
+      // 🔽 追加：タイルごとに背景色をつけて視覚テスト
+      ctx.fillStyle = `rgb(${tileId * 50},0,0)`;  // 赤系の色分け
+      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      
       const sx = (tileId % TILESET_COLS) * TILE_SIZE;
       const sy = Math.floor(tileId / TILESET_COLS) * TILE_SIZE;
-
-      // テスト塗り：緑
-      ctx.fillStyle = "#00FF00";
-      ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
-
-      
+  
       ctx.drawImage(tilesetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
   }
