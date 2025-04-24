@@ -98,6 +98,22 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 
 export function drawMapLayers(ctx) {
   if (!ctx) return;
+  // Canvasをクリア
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+  // テスト：tileId=1 のタイルを直接描画（tileset の2列目, 1行目）
+  ctx.globalAlpha = 1.0; // 念のため透過無効化
+  ctx.drawImage(
+    tileset,   // ← images/map.png
+    32, 0,     // ← tileId=1 の位置 (X=32, Y=0)
+    32, 32,    // ← tileサイズ
+    0, 0,      // ← 描画位置 (canvas左上)
+    32, 32     // ← 描画サイズ（同じく）
+  );
+
+  console.log("🧪 tileId=1 の直接描画テスト完了");
+  
+  /*
   const tileMap = tileMaps[floorIndex];
   const itemMap = itemMaps[floorIndex];
   
@@ -108,6 +124,7 @@ export function drawMapLayers(ctx) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   drawTileLayer(tileMap, tileset, ctx);
   drawItemLayer(itemMap, itemset, ctx);
+  */
 }
 
 export function changeFloor(newFloor, ctx) {
