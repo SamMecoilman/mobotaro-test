@@ -491,9 +491,11 @@ function checkLevelUp() {
 // 🎞️ 歩行アニメーション処理
 // canvas に描画するための animate
 function animate() {
+  // これを追加して、前のフレームを消す！！
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   updatePosition();
   checkEnemyAttack();
-
 
   const now = Date.now();
   frameIndex = (frameIndex + 1) % 3;
@@ -501,20 +503,16 @@ function animate() {
   const directionMap = { front: 0, left: 1, back: 2, right: 3 };
   const frameY = directionMap[direction] ?? 0;
 
-  // canvasを消去して再描画（背景がある場合は差し替え要）
-  // ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // プレイヤーのスプライトを描画
   ctx.drawImage(
     spriteSheet,
-    frameIndex * 32,       // ← X位置（フレーム列）
-    frameY * 32,           // ← Y位置（方向行）
-    32, 32,                // ← 切り出しサイズ（32x32）
-    x - 8, y,          // ← 描画先（プレイヤー座標）(32に対してプレイヤーを48にしてしまったため差分の-8で中央に立つようにしている)
-    48, 48                 // ← 描画サイズ（1.5倍）
+    frameIndex * 32,
+    frameY * 32,
+    32, 32,
+    x - 8, y,
+    48, 48
   );
 
-  // 他プレイヤーなども再描画（必要ならここに追加）
+  // 他プレイヤーやマップ描画など必要ならここで追加
 
   setTimeout(() => requestAnimationFrame(animate), 150);
 }
