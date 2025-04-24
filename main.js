@@ -28,7 +28,7 @@ tileset.onload = () => {
   ctx.fillStyle = "green";                  // ← 🔥 ④ ベタ塗りテスト
   ctx.fillRect(0, 0, 32, 32);
 
-  ctx.drawImage(tileset, 0, 0);             // ← 🧱 ③ tileset全部描画
+  // ctx.drawImage(tileset, 0, 0);             // ← 🧱 ③ tileset全部描画
 
   tryStartDrawing(); // ←このまま残してOK
 };
