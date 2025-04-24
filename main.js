@@ -24,13 +24,18 @@ tileset.onload = () => {
   console.log("✅ tileset 読み込み完了");
   tilesetLoaded = true;
 
-  // ←この直後にテストを入れる！
-  ctx.fillStyle = "green";                  // ← 🔥 ④ ベタ塗りテスト
-  ctx.fillRect(0, 0, 32, 32);
+  // 🔥 テスト：canvas に緑を塗る（canvas が描画できてるか確認）
+  ctx.fillStyle = "green";
+  ctx.fillRect(0, 0, 64, 64);
 
-  // ctx.drawImage(tileset, 0, 0);             // ← 🧱 ③ tileset全部描画
+  // 🔍 透過防止 → drawImage 前に透明度リセット
+  ctx.globalAlpha = 1.0;
 
-  tryStartDrawing(); // ←このまま残してOK
+  // 🖼️ map.png 全体を描画（tileset を左上に描いて見えるか確認）
+  ctx.drawImage(tileset, 0, 0);
+
+  // 🎯 あとはいつもの処理
+  tryStartDrawing();
 };
 itemset.onload = () => {
   console.log("✅ itemset 読み込み完了");
