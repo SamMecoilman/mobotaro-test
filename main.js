@@ -494,6 +494,8 @@ function animate() {
   // これを追加して、前のフレームを消す！！
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  drawMapLayers(ctx); // ★マップ再描画（背景を塗り直す）
+  
   updatePosition();
   checkEnemyAttack();
 
