@@ -495,20 +495,15 @@ function animate() {
   checkEnemyAttack();
 
 
-  // 各方向を行番号にマッピング
-  const directionMap = { front: 0, left: 1, back: 2, right: 3 };
-  const frameY = directionMap[direction] ?? 0;
-
-  // canvasを消去して再描画（背景がある場合は差し替え要）
-  // ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   const now = Date.now();
   frameIndex = (frameIndex + 1) % 3;
 
   const directionMap = { front: 0, left: 1, back: 2, right: 3 };
   const frameY = directionMap[direction] ?? 0;
 
-  
+  // canvasを消去して再描画（背景がある場合は差し替え要）
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
+
   // プレイヤーのスプライトを描画
   ctx.drawImage(
     spriteSheet,
