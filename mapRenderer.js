@@ -5,9 +5,11 @@ export const TILESET_COLS = 8;
 export let floorIndex = 0;
 
 export const tileset = new Image();
+tileset.crossOrigin = "anonymous"; // ← 必須！
 tileset.src = "images/map.png";
 
 export const itemset = new Image();
+itemset.crossOrigin = "anonymous"; // ← 同様に！
 itemset.src = "images/item.png";
 
 export const tileMaps = Array(FLOOR_COUNT).fill(null);
