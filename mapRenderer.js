@@ -99,23 +99,15 @@ export function drawItemLayer(itemMap, itemsetImage, ctx) {
 
 export function drawMapLayers(ctx) {
   if (!ctx) return;
+
+  const tileMap = tileMaps[floorIndex];
+  const itemMap = itemMaps[floorIndex];
+
+  // 👇ここに差し込む！！
+  console.log("🧱 tileMap サイズ: 幅=", tileMap[0].length, " 高さ=", tileMap.length);
+
   // Canvasをクリア
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-
-  // ⛔ テスト用の1タイル描画は一旦OFF（※戻す場合はここ使う）
-  // ctx.globalAlpha = 1.0;
-  // ctx.drawImage(tileset, 32, 0, 32, 32, 0, 0, 32, 32);
-  // console.log("🧪 tileId=1 の直接描画テスト完了");
-
-  // ✅ 通常マップ描画に戻す
-  const tileMap = tileMaps[floorIndex];  // ← floorIndex = 0 としてもOK
-  const itemMap = itemMaps[floorIndex];
-  
-  console.log("🖌️ drawMapLayers 呼び出し確認");
-  console.log("🧱 tileMap:", tileMap);
-  console.log("🌱 itemMap:", itemMap);
-
-  if (!tileMap || !itemMap) return;
 
   drawTileLayer(tileMap, tileset, ctx);
   drawItemLayer(itemMap, itemset, ctx);
