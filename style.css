@@ -27,9 +27,6 @@ body {
 
 /* 🎨 Canvas（プレイヤー・敵・背景）描画用 */
 #canvas {
-  width: 1024px;
-  height: 1024px;
-  /*
   position: absolute;
   display: block;
   margin: 0 auto;
@@ -40,7 +37,6 @@ body {
   height: auto;
   image-rendering: pixelated; /* ドット絵に最適化 */
   pointer-events: none;       /* クリックなどを無効化 */
-  */
 }
 
 /* 💬 ステータスUIの余白設定 */
