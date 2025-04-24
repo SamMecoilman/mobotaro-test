@@ -1,12 +1,13 @@
 /* 🌑 全体の基本設定 */
-body {
-  margin: 0;                      /* ページ全体の余白をなくす */
-  background: #111;              /* 背景を暗めの黒に設定 */
-  color: white;                  /* 文字色を白に設定 */
-  font-family: sans-serif;       /* フォントをサンセリフ体に指定（ゴシック系） */
-  text-align: center;            /* テキストを中央揃え */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #111;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+  overflow: hidden;
 }
-
 /* 🎮 メニュー画面のレイアウト調整 */
 #menu {
   padding-top: 100px;            /* 上方向に100pxの余白（中央寄せ） */
@@ -27,16 +28,12 @@ body {
 
 /* 🎨 Canvas（プレイヤー・敵・背景）描画用 */
 #canvas {
-  position: absolute;
   display: block;
   margin: 0 auto;
-  top: 0;
-  left: 0;
-  z-index: 1;
-  width: auto;
+  width: 100vw;
   height: auto;
-  image-rendering: pixelated; /* ドット絵に最適化 */
-  pointer-events: none;       /* クリックなどを無効化 */
+  image-rendering: pixelated;
+  background: black; /* ← 念のため背景追加しておくと安心 */
 }
 
 /* 💬 ステータスUIの余白設定 */
