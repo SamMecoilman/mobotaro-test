@@ -72,8 +72,9 @@ export function drawTileLayer(tileMap, tilesetImage, ctx) {
       
       const sx = (tileId % TILESET_COLS) * TILE_SIZE;
       const sy = Math.floor(tileId / TILESET_COLS) * TILE_SIZE;
-  
-      ctx.drawImage(tilesetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+      ctx.drawImage(tileset, 0, 0); // ← これで map.png を canvas の左上に全部表示
+      // ctx.drawImage(tilesetImage, sx, sy, TILE_SIZE, TILE_SIZE, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
     }
   }
 }
