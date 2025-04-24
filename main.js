@@ -23,7 +23,14 @@ function tryStartDrawing() {
 tileset.onload = () => {
   console.log("✅ tileset 読み込み完了");
   tilesetLoaded = true;
-  tryStartDrawing();
+
+  // ←この直後にテストを入れる！
+  ctx.fillStyle = "green";                  // ← 🔥 ④ ベタ塗りテスト
+  ctx.fillRect(0, 0, 32, 32);
+
+  ctx.drawImage(tileset, 0, 0);             // ← 🧱 ③ tileset全部描画
+
+  tryStartDrawing(); // ←このまま残してOK
 };
 itemset.onload = () => {
   console.log("✅ itemset 読み込み完了");
