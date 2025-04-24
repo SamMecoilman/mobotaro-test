@@ -102,30 +102,23 @@ export function drawMapLayers(ctx) {
   // Canvasをクリア
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // テスト：tileId=1 のタイルを直接描画（tileset の2列目, 1行目）
-  ctx.globalAlpha = 1.0; // 念のため透過無効化
-  ctx.drawImage(
-    tileset,   // ← images/map.png
-    32, 0,     // ← tileId=1 の位置 (X=32, Y=0)
-    32, 32,    // ← tileサイズ
-    0, 0,      // ← 描画位置 (canvas左上)
-    32, 32     // ← 描画サイズ（同じく）
-  );
+  // ⛔ テスト用の1タイル描画は一旦OFF（※戻す場合はここ使う）
+  // ctx.globalAlpha = 1.0;
+  // ctx.drawImage(tileset, 32, 0, 32, 32, 0, 0, 32, 32);
+  // console.log("🧪 tileId=1 の直接描画テスト完了");
 
-  console.log("🧪 tileId=1 の直接描画テスト完了");
-  
-  /*
-  const tileMap = tileMaps[floorIndex];
+  // ✅ 通常マップ描画に戻す
+  const tileMap = tileMaps[floorIndex];  // ← floorIndex = 0 としてもOK
   const itemMap = itemMaps[floorIndex];
   
-  console.log("🖌️ drawMapLayers 呼び出し確認"); // ←★追記
+  console.log("🖌️ drawMapLayers 呼び出し確認");
   console.log("🧱 tileMap:", tileMap);
   console.log("🌱 itemMap:", itemMap);
+
   if (!tileMap || !itemMap) return;
-  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+
   drawTileLayer(tileMap, tileset, ctx);
   drawItemLayer(itemMap, itemset, ctx);
-  */
 }
 
 export function changeFloor(newFloor, ctx) {
