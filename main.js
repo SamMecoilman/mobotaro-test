@@ -494,8 +494,6 @@ function animate() {
   updatePosition();
   checkEnemyAttack();
 
-  const now = Date.now();
-  frameIndex = (frameIndex + 1) % 3;
 
   // 各方向を行番号にマッピング
   const directionMap = { front: 0, left: 1, back: 2, right: 3 };
