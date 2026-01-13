@@ -61,6 +61,20 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
   - ルームベース（インスタンス管理が主）
   - Survivor Battle Area は Colyseus Room として実装する
 
+## 入力方式（更新）
+
+- 操作入力は共通の **MoveInput（x, y: -1.0〜1.0）** に統一
+- クライアント側で各入力方式を MoveInput に変換し、サーバへ送信
+- サーバは MoveInput のみを信頼して処理（入力方式非依存）
+
+### 対応入力
+- **PC**
+  - WASD
+  - 矢印キー
+- **モバイル（スマホ／タブレット）**
+  - 仮想スティック（左下・移動のみの最小UI）
+
+
 ### サーバ
 - **Node.js + TypeScript**
 - フレームワーク：**Fastify または NestJS**
