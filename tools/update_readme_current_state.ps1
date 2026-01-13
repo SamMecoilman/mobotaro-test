@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ReadmePath = "README.md",
   [string]$SourcePath = "docs/current_state.md"
 )
@@ -21,7 +21,8 @@ $replacement = $begin + "`r`n" + $src.TrimEnd() + "`r`n" + $end
 
 $updated = [regex]::Replace($readme, $pattern, $replacement, "Singleline")
 
-# Write back (UTF-8 without BOM)
-[System.IO.File]::WriteAllText((Resolve-Path $ReadmePath), $updated, New-Object System.Text.UTF8Encoding($false))
+# Write UTF-8 (no BOM)
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Resolve-Path $ReadmePath).Path, $updated, $utf8NoBom)
 
-Write-Host "Updated CURRENT STATE block in $ReadmePath from $SourcePath"
+Write-Host "Updated CURRENT STATE block in $ReadmePath"
