@@ -8,6 +8,7 @@ type MoveMessage = {
 
 export class SurvivorRoom extends Room<SurvivorState> {
   private spawnTimer = 0;
+  private maxEnemies = 25;
 
   onCreate() {
     this.setState(new SurvivorState());
@@ -26,6 +27,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
 
   onJoin(client: Client) {
     const player = new Player();
+    player.id = client.sessionId;
     this.state.players.set(client.sessionId, player);
   }
 
@@ -52,6 +54,12 @@ export class SurvivorRoom extends Room<SurvivorState> {
       enemy.x = randomRange(60, 900);
       enemy.y = randomRange(60, 480);
       this.state.enemies.set(enemy.id, enemy);
+      if (this.state.enemies.size > this.maxEnemies) {
+        const oldestKey = this.state.enemies.keys().next().value;
+        if (oldestKey) {
+          this.state.enemies.delete(oldestKey);
+        }
+      }
     }
   }
 }
