@@ -1,4 +1,4 @@
-import { Room, type Client } from "colyseus";
+import { Room, type Client } from "@colyseus/core";
 import { Enemy, Player, SurvivorState } from "./SurvivorState.js";
 
 type MoveMessage = {

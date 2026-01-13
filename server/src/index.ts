@@ -1,5 +1,5 @@
 import { WebSocketTransport } from "@colyseus/ws-transport";
-import { Server } from "colyseus";
+import { Server } from "@colyseus/core";
 import fastify from "fastify";
 import { SurvivorRoom } from "./SurvivorRoom.js";
 
