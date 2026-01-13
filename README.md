@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # AI INSTRUCTIONS / SOURCE OF TRUTH
-=======
-#  AI INSTRUCTIONS / SOURCE OF TRUTH
->>>>>>> ad34c875316b1d580bdd1ffdb9e491af5b3fbbaa
 
 この README.md は本プロジェクトにおける **唯一の正本**。
 AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
@@ -65,6 +61,24 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
   - ルームベース（インスタンス管理が主）
   - Survivor Battle Area は Colyseus Room として実装する
 
+
+## 入力方式（更新）
+
+- 操作入力は共通の **MoveInput（x, y: -1.0〜1.0）** に統一
+- クライアント側で各入力方式を MoveInput に変換し、サーバへ送信
+- サーバは MoveInput のみを信頼して処理（入力方式非依存）
+
+### 対応入力
+- **PC**
+  - WASD
+  - 矢印キー
+  - タッチPC（2-in-1）もPCとして扱う
+    
+- **モバイル（スマホ／タブレット）**
+  - 仮想スティック（左下・移動のみの最小UI）「PCでは非表示、スマホ、タブレットでは表示させる」
+  - iPad＋マウス等はタブレット判定とする
+
+
 ### サーバ
 - **Node.js + TypeScript**
 - フレームワーク：**Fastify または NestJS**
@@ -94,6 +108,8 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
 
 ---
 
+<!-- AUTO:CURRENT_STATE:START -->
+
 # CURRENT STATE（いまの作業位置）
 
 - ブランチ：reboot
@@ -114,7 +130,7 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
 - 既知の課題：
   - スティックもWASDでもキャラクターが動かない
 - 次の目標（直近）：
-  - 仮想スティック表示（ボタンにより表示・非表示が制御出来る）
+  - 仮想スティック（左下・移動のみの最小UI）「PCでは非表示、スマホ、タブレットでは表示させる」
   - PCではWASDで確実に移動できる
 - 次の目標（中期）：
   - state同期を描画に統一（player/enemyをstate駆動）
@@ -139,32 +155,3 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
 - README.md を **AI 指示の唯一の正本**とする
 
 ---
-
-# LEGACY / REFERENCE（参考資料・現在は非有効）
-
-※ 以下は **過去構想・参考仕様**。  
-※ CANONICAL SPEC と矛盾する場合、**必ず CANONICAL SPEC を優先**。
-
-## 公開URL
-- ゲーム確認URL  
-  https://sammecoilman.github.io/mobotaro-test/
-
-## 旧仕様・参考仕様書
-- Google Spreadsheet  
-  https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe50U0/edit?gid=0#gid=0
-- dev.md  
-  https://github.com/SamMecoilman/mobotaro-test/blob/main/dev.md
-
-## 旧コンセプト概要（PvPvE時代）
-- ジャンル：2DアクションRPG（PvPvE 型 MMORPG）
-- Discord ユーザー名連携
-- タイル：32×32
-- ステータス：HP / ATK / 防御 / 素早さ / 会心率
-- レイドボス：足立先生
-- 技術スタック：
-  - Godot 4 (HTML5)
-  - Python (discord.py)
-  - Replit / GitHub Pages
-
-※ 上記は **参照・再利用可**だが、  
-※ **現在の実装方針を拘束しない**。
