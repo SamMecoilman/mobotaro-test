@@ -6,20 +6,21 @@
   - TypeScript + Phaser（client）起動（Vite）
   - TypeScript + Colyseus（server）起動（Fastify + ws-transport）
   - client ↔ server 接続
-  - サーバtick稼働
+  - サーバtick稼働（15/s）
   - 敵スポーン（仮：1.5s間隔）
   - MoveInput（x,y:-1..1）へ入力を統一（WASD/矢印 + 仮想スティック）
   - 仮想スティックUI実装（左下）
+  - PCでは仮想スティック非表示、WASD/矢印入力が描画に反映される状態を確認
 - ローカル起動：
   - npm install
   - npm run dev
   - http://localhost:5173
   - （任意）http://localhost:2567/health
 - 既知の課題：
-  - スティックもWASDでもキャラクターが動かない
+  - 端末判定（スマホ / タブレット / PC）がUA依存の場合、iPadOS等でブレる可能性
 - 次の目標（直近）：
-  - 仮想スティック（左下・移動のみの最小UI）「PCでは非表示、スマホ、タブレットでは表示させる」
-  - PCではWASDで確実に移動できる
+  - 仮想スティック（左下・移動のみの最小UI）を「PCでは非表示、スマホ/タブレットでは表示」で安定させる
+  - PCではWASDで確実に移動できる状態を維持（回帰防止）
 - 次の目標（中期）：
   - state同期を描画に統一（player/enemyをstate駆動）
   - Survivor戦闘の最小ループ
