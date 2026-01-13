@@ -17,7 +17,7 @@ https://docs.google.com/spreadsheets/d/1wQB0SawXlo99-0tyQV12KY2qY3B5arnye6DbYPe5
 
 ---
 
-### 【2. 今回やりたいこと】
+### 【2. 毎回AIにお願いしたいこと】
 - 現在のリポジトリ https://github.com/SamMecoilman/mobotaro-test 既存ロジックに影響が出ないような機能拡張、改善方法を教えてほしい
 - 修正したいファイル：main.js
 - 修正したい関数名：不明
