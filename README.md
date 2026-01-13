@@ -108,7 +108,7 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
 
 ---
 
-<!-- AUTO:CURRENT_STATE:START -->
+<!-- AUTO:CURRENT_STATE:BEGIN -->
 
 # CURRENT STATE（いまの作業位置）
 
