@@ -12,7 +12,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
 
   onCreate() {
     this.setState(new SurvivorState());
-    this.setSimulationInterval((dt) => this.tick(dt), 1000 / 20);
+    this.setSimulationInterval((dt) => this.tick(dt), 1000 / 15);
 
     this.onMessage("move", (client: Client, message: MoveMessage) => {
       const player = this.state.players.get(client.sessionId);

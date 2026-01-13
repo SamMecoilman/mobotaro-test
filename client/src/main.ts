@@ -65,7 +65,9 @@ class MainScene extends Phaser.Scene {
       })
       .setDepth(10);
 
-    this.createVirtualStick();
+    if (shouldShowVirtualStick()) {
+      this.createVirtualStick();
+    }
 
     this.joinServer().catch((error) => {
       console.error(error);
@@ -167,7 +169,9 @@ class MainScene extends Phaser.Scene {
   }
 
   private async joinServer() {
-    this.client = new Client("ws://localhost:2567");
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const hostname = window.location.hostname || "localhost";
+    this.client = new Client(`${protocol}://${hostname}:2567`);
     this.room = await this.client.joinOrCreate<RoomState>("survivor");
     this.playerId = this.room.sessionId;
 
@@ -182,13 +186,12 @@ class MainScene extends Phaser.Scene {
         .rectangle(player.x, player.y, size, size, fill)
         .setStrokeStyle(1, stroke);
       this.playerSprites.set(id, sprite);
-    });
-
-    this.room.state.players.onChange((player, id) => {
-      const sprite = this.playerSprites.get(id);
-      if (sprite) {
-        sprite.setPosition(player.x, player.y);
-      }
+      player.onChange(() => {
+        const ownedSprite = this.playerSprites.get(id);
+        if (ownedSprite) {
+          ownedSprite.setPosition(player.x, player.y);
+        }
+      });
     });
 
     this.room.state.players.onRemove((_player, id) => {
@@ -229,6 +232,11 @@ class MainScene extends Phaser.Scene {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+const shouldShowVirtualStick = () => {
+  const ua = navigator.userAgent;
+  return /Android|iPhone|iPad|iPod|Tablet/i.test(ua);
+};
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
