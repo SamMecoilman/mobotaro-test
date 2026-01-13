@@ -82,7 +82,7 @@
       .hud-text {
         font-size: 12px;
         color: #444;
-        margin-bottom: 6px;
+        margin-bottom: 3px;
       }
 
       .hud-value {
@@ -91,13 +91,51 @@
         margin-bottom: 10px;
       }
 
+      .hud-xp {
+        margin-bottom: 14px;
+      }
+
+      .hud-xp-label {
+        font-size: 10px;
+        color: #666;
+        margin-bottom: 4px;
+        letter-spacing: 0.08em;
+      }
+
+      .hud-xp-bar {
+        width: 100%;
+        height: 6px;
+        background: #efefef;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 6px;
+      }
+
+      .hud-xp-fill {
+        height: 100%;
+        width: 0%;
+        background: #6d7fb2;
+      }
+
+      .detail-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        font-size: 11px;
+        border: 1px solid #000000;
+        background: #ffffff;
+        color: #1a1b1f;
+        cursor: pointer;
+      }
+
       .bar {
         width: 100%;
         height: 8px;
         background: #efefef;
         border-radius: 6px;
         overflow: hidden;
-        margin-bottom: 10px;
+        margin-bottom: 6px;
       }
 
       .bar-fill {
@@ -203,19 +241,20 @@
     <div id="layout">
       <aside id="hud-left" class="hud pc-only">
         <div class="hud-section">
-          <div class="hud-title">STATUS</div>
-          <div class="hud-text">HP</div>
+          <div class="hud-xp">
+            <div class="hud-xp-label" id="pc-xp-label">NEXT LV</div>
+            <div class="hud-xp-bar"><div class="hud-xp-fill" id="pc-xp-fill"></div></div>
+          </div>
+          <div class="hud-text">HP / Lv: <span id="pc-level">1</span></div>
           <div class="bar"><div class="bar-fill hp" id="pc-hp-fill"></div></div>
           <div class="hud-value" id="pc-hp-value">100 / 100</div>
           <div class="hud-text">SP</div>
-          <div class="bar"><div class="bar-fill sp"></div></div>
-          <div class="hud-value">100 / 100</div>
+          <div class="bar"><div class="bar-fill sp" id="pc-sp-fill"></div></div>
+          <div class="hud-value" id="pc-sp-value">100 / 100</div>
           <div class="hud-text">GOLD 0</div>
         </div>
         <div class="hud-section">
-          <div class="hud-title">CONTROLS</div>
-          <div class="hud-text">Move: WASD / Arrows</div>
-          <div class="hud-text">Attack: Space</div>
+          <button class="detail-button" id="pc-detail-button">CHARACTER</button>
         </div>
       </aside>
       <main id="game-area">

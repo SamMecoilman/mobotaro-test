@@ -11,6 +11,10 @@ type AttackMessage = {
   y: number;
 };
 
+type AssignStatMessage = {
+  stat: string;
+};
+
 export class SurvivorRoom extends Room<SurvivorState> {
   private spawnTimer = 0;
   private maxEnemies = 25;
@@ -49,11 +53,57 @@ export class SurvivorRoom extends Room<SurvivorState> {
       }
       this.enemyHitCooldown.set(cooldownKey, now);
       target.hp = Math.max(0, target.hp - PLAYER_ATTACK_DAMAGE);
+      this.broadcast("damageFloat", {
+        x: target.x,
+        y: target.y,
+        amount: PLAYER_ATTACK_DAMAGE
+      });
       if (target.hp <= 0) {
         this.state.enemies.delete(target.id);
         player.xp += ENEMY_XP_REWARD;
         this.applyLevelUps(player);
+        this.broadcast("xpFloat", {
+          x: target.x,
+          y: target.y,
+          amount: ENEMY_XP_REWARD
+        });
       }
+    });
+
+    this.onMessage("assignStat", (client: Client, message: AssignStatMessage) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.statPoints <= 0) {
+        return;
+      }
+      const key = message.stat;
+      switch (key) {
+        case "hp":
+          player.maxHp += 5;
+          player.hp = Math.min(player.hp + 5, player.maxHp);
+          break;
+        case "sp":
+          player.maxSp += 5;
+          player.sp = Math.min(player.sp + 5, player.maxSp);
+          break;
+        case "attack":
+          player.attack += 1;
+          break;
+        case "defense":
+          player.defense += 1;
+          break;
+        case "speed":
+          player.speed += 1;
+          break;
+        case "attackSpeed":
+          player.attackSpeed += 1;
+          break;
+        case "luck":
+          player.luck += 1;
+          break;
+        default:
+          return;
+      }
+      player.statPoints -= 1;
     });
   }
 
@@ -132,10 +182,27 @@ export class SurvivorRoom extends Room<SurvivorState> {
         }
         this.playerHitCooldown.set(cooldownKey, now);
         player.hp = Math.max(0, player.hp - ENEMY_CONTACT_DAMAGE);
+        this.broadcast("damageFloat", {
+          x: player.x,
+          y: player.y,
+          amount: ENEMY_CONTACT_DAMAGE
+        });
         if (player.hp <= 0) {
           player.isDead = true;
           player.vx = 0;
           player.vy = 0;
+          player.level = 1;
+          player.xp = 0;
+          player.statPoints = 0;
+          player.attack = 5;
+          player.defense = 2;
+          player.speed = 1;
+          player.attackSpeed = 1;
+          player.luck = 1;
+          player.maxHp = 100;
+          player.hp = 0;
+          player.maxSp = 50;
+          player.sp = 0;
           this.playerDeadUntil.set(player.id, now + PLAYER_RESPAWN_MS);
         }
       }

@@ -9,10 +9,17 @@ export class Player extends Schema {
   @type("number") vy = 0;
   @type("number") hp = 100;
   @type("number") maxHp = 100;
+  @type("number") sp = 50;
+  @type("number") maxSp = 50;
   @type("boolean") isDead = false;
   @type("number") xp = 0;
   @type("number") level = 1;
   @type("number") statPoints = 0;
+  @type("number") attack = 5;
+  @type("number") defense = 2;
+  @type("number") speed = 1;
+  @type("number") attackSpeed = 1;
+  @type("number") luck = 1;
 }
 
 export class Enemy extends Schema {

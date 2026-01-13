@@ -8,7 +8,17 @@ type PlayerState = {
   kind: string;
   hp?: number;
   maxHp?: number;
+  sp?: number;
+  maxSp?: number;
   isDead?: boolean;
+  xp?: number;
+  level?: number;
+  statPoints?: number;
+  attack?: number;
+  defense?: number;
+  speed?: number;
+  attackSpeed?: number;
+  luck?: number;
 };
 
 type EnemyState = {
@@ -72,7 +82,7 @@ class MainScene extends Phaser.Scene {
   private room?: Room<RoomState>;
   private playerId?: string;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-  private playerSprites = new Map<string, Phaser.GameObjects.Rectangle>();
+  private playerSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private enemySprites = new Map<string, Phaser.GameObjects.Rectangle>();
   private enemyHpTexts = new Map<string, Phaser.GameObjects.Text>();
   private statusText?: Phaser.GameObjects.Text;
@@ -80,8 +90,26 @@ class MainScene extends Phaser.Scene {
   private selfIsDead = false;
   private pcHpValueEl?: HTMLElement | null;
   private pcHpFillEl?: HTMLElement | null;
+  private pcSpValueEl?: HTMLElement | null;
+  private pcSpFillEl?: HTMLElement | null;
+  private pcXpFillEl?: HTMLElement | null;
+  private pcXpLabelEl?: HTMLElement | null;
+  private pcDetailButton?: HTMLButtonElement | null;
+  private pcLevelEl?: HTMLElement | null;
+  private mobileDetailButton?: Phaser.GameObjects.Rectangle;
+  private detailPanel?: Phaser.GameObjects.Container;
+  private detailSprite?: Phaser.GameObjects.Sprite;
+  private detailFields = new Map<string, Phaser.GameObjects.Text>();
+  private detailPlusButtons = new Map<string, Phaser.GameObjects.Rectangle>();
+  private detailStatPoints?: Phaser.GameObjects.Text;
   private mobileHpValueText?: Phaser.GameObjects.Text;
   private mobileHpFill?: Phaser.GameObjects.Rectangle;
+  private mobileHpLabel?: Phaser.GameObjects.Text;
+  private mobileSpValueText?: Phaser.GameObjects.Text;
+  private mobileSpFill?: Phaser.GameObjects.Rectangle;
+  private mobileXpFill?: Phaser.GameObjects.Rectangle;
+  private mobileXpLabel?: Phaser.GameObjects.Text;
+  private mobileGoldText?: Phaser.GameObjects.Text;
   private mobileHpBarWidth = 0;
   private mobileHpBarHeight = 0;
   private wasd?: {
@@ -160,14 +188,30 @@ class MainScene extends Phaser.Scene {
     if (!isMobile) {
       this.pcHpValueEl = document.getElementById("pc-hp-value");
       this.pcHpFillEl = document.getElementById("pc-hp-fill");
+      this.pcSpValueEl = document.getElementById("pc-sp-value");
+      this.pcSpFillEl = document.getElementById("pc-sp-fill");
+      this.pcXpFillEl = document.getElementById("pc-xp-fill");
+      this.pcXpLabelEl = document.getElementById("pc-xp-label");
+      this.pcLevelEl = document.getElementById("pc-level");
+      this.pcDetailButton = document.getElementById(
+        "pc-detail-button"
+      ) as HTMLButtonElement | null;
+      this.pcDetailButton?.addEventListener("click", () => {
+        this.toggleDetailPanel();
+      });
     }
+    this.input.addPointer(2);
 
     if (isMobile) {
       this.createVirtualStick();
       this.createMobileUi();
       this.setupPointerAttack();
+      this.scale.on("resize", () => {
+        this.layoutMobileStick();
+      });
     } else {
       this.setupPointerAttack();
+      this.createDetailPanel();
     }
 
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
@@ -216,36 +260,37 @@ class MainScene extends Phaser.Scene {
   }
 
   private createVirtualStick() {
-    const { width, height } = this.scale;
-    const baseX = 80;
-    const baseY = height - 80;
-    this.stickBasePosition = { x: baseX, y: baseY };
-
     this.stickBase = this.add
-      .circle(baseX, baseY, this.stickRadius, 0x1a1b1f, 0.6)
+      .circle(0, 0, this.stickRadius, 0x1a1b1f, 0.6)
       .setStrokeStyle(2, 0x2a2d33)
       .setScrollFactor(0)
       .setDepth(5);
 
     this.stickKnob = this.add
-      .circle(baseX, baseY, 18, 0x4aa3ff, 0.9)
+      .circle(0, 0, 18, 0x4aa3ff, 0.9)
       .setStrokeStyle(2, 0x1b2b3a)
       .setScrollFactor(0)
       .setDepth(6);
+
+    this.layoutMobileStick();
 
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (this.stickPointerId !== undefined) {
         return;
       }
+      const base = this.stickBasePosition;
+      if (!base) {
+        return;
+      }
       const distance = Phaser.Math.Distance.Between(
         pointer.x,
         pointer.y,
-        baseX,
-        baseY
+        base.x,
+        base.y
       );
       if (distance <= this.stickRadius * 1.2) {
         this.stickPointerId = pointer.id;
-        this.updateStick(pointer, baseX, baseY);
+        this.updateStick(pointer, base.x, base.y);
       }
     });
 
@@ -253,7 +298,11 @@ class MainScene extends Phaser.Scene {
       if (this.stickPointerId !== pointer.id) {
         return;
       }
-      this.updateStick(pointer, baseX, baseY);
+      const base = this.stickBasePosition;
+      if (!base) {
+        return;
+      }
+      this.updateStick(pointer, base.x, base.y);
     });
 
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
@@ -263,7 +312,12 @@ class MainScene extends Phaser.Scene {
       this.stickPointerId = undefined;
       this.stickVector.x = 0;
       this.stickVector.y = 0;
-      this.stickKnob?.setPosition(baseX, baseY);
+      if (this.stickBasePosition) {
+        this.stickKnob?.setPosition(
+          this.stickBasePosition.x,
+          this.stickBasePosition.y
+        );
+      }
     });
   }
 
@@ -287,6 +341,26 @@ class MainScene extends Phaser.Scene {
     this.stickVector.y = clamp(normalizedY, -1, 1);
   }
 
+  private layoutMobileStick() {
+    const { width, height } = this.scale;
+    const margin = 20;
+    const targetX = 90;
+    const targetY = height - Math.max(140, height * 0.22);
+    const baseX = clamp(
+      targetX,
+      margin + this.stickRadius,
+      width - margin - this.stickRadius
+    );
+    const baseY = clamp(
+      targetY,
+      margin + this.stickRadius,
+      height - margin - this.stickRadius
+    );
+    this.stickBasePosition = { x: baseX, y: baseY };
+    this.stickBase?.setPosition(baseX, baseY);
+    this.stickKnob?.setPosition(baseX, baseY);
+  }
+
   private async joinServer() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const hostname = window.location.hostname || "localhost";
@@ -307,12 +381,11 @@ class MainScene extends Phaser.Scene {
         this.cameras.main.startFollow(sprite);
         this.updateSelfHud(player);
       } else {
-        const size = 18;
-        const stroke = 0x1f3b27;
-        const fill = 0x7bd88f;
         const sprite = this.add
-          .rectangle(player.x, player.y, size, size, fill)
-          .setStrokeStyle(1, stroke);
+          .sprite(player.x, player.y, mobtaroFrameKeys[0])
+          .setDisplaySize(40, 40)
+          .setAlpha(0.55)
+          .play("mobtaro_walk");
         this.playerSprites.set(id, sprite);
       }
       player.onChange(() => {
@@ -386,6 +459,19 @@ class MainScene extends Phaser.Scene {
       this.statusText?.setText(`connected | tick ${this.room?.state.tick ?? 0}`);
     });
 
+      this.room.onMessage("xpFloat", (message) => {
+        if (!message) {
+          return;
+        }
+        this.spawnXpFloat(message.x, message.y, message.amount);
+      });
+      this.room.onMessage("damageFloat", (message) => {
+        if (!message) {
+          return;
+        }
+        this.spawnDamageFloat(message.x, message.y, message.amount);
+      });
+
     this.room.onLeave(() => {
       this.statusText?.setText("connection closed");
       this.room = undefined;
@@ -413,31 +499,32 @@ class MainScene extends Phaser.Scene {
     this.mobileHpBarHeight = barHeight;
     const hpX = 12;
     const hpY = 12;
-    this.add
-      .text(hpX, hpY, "HP", labelStyle)
+    this.mobileHpLabel = this.add
+      .text(hpX, hpY, "HP / Lv: 1", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
     this.mobileHpFill = this.add
-      .rectangle(hpX, hpY + 16, barWidth, barHeight, 0x8b1e1e, 0.9)
+      .rectangle(hpX, hpY + 14, barWidth, barHeight, 0x8b1e1e, 0.9)
       .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth);
     this.mobileHpValueText = this.add
-      .text(hpX, hpY + 24, "100 / 100", valueStyle)
+      .text(hpX, hpY + 21, "100 / 100", valueStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
-    const spY = hpY + 26;
+    const spY = hpY + 30;
     this.add
       .text(hpX, spY, "SP", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
-    this.add
-      .rectangle(hpX + barWidth / 2, spY + 16, barWidth, barHeight, 0x1b4a8b, 0.9)
+    this.mobileSpFill = this.add
+      .rectangle(hpX, spY + 14, barWidth, barHeight, 0x1b4a8b, 0.9)
+      .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth);
-    this.add
-      .text(hpX, spY + 24, "100 / 100", valueStyle)
+    this.mobileSpValueText = this.add
+      .text(hpX, spY + 21, "100 / 100", valueStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
@@ -477,6 +564,10 @@ class MainScene extends Phaser.Scene {
       {
         label: "Inventory",
         onPress: () => this.toggleMobilePanel("inventory")
+      },
+      {
+        label: "Character",
+        onPress: () => this.toggleDetailPanel()
       },
       {
         label: "Settings",
@@ -522,6 +613,9 @@ class MainScene extends Phaser.Scene {
         return;
       }
       this.mobileMenu.setVisible(!this.mobileMenu.visible);
+      if (this.mobileMenu.visible) {
+        this.detailPanel?.setVisible(false);
+      }
     });
 
     const panelWidth = Math.min(280, width - 40);
@@ -550,6 +644,8 @@ class MainScene extends Phaser.Scene {
     });
     this.mobilePanels.set("inventory", inventoryPanel);
     this.mobilePanels.set("settings", settingsPanel);
+
+    this.createDetailPanel();
   }
 
   private createMobileOverlayPanel(
@@ -617,7 +713,7 @@ class MainScene extends Phaser.Scene {
 
   private setupPointerAttack() {
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (pointer.button !== 0) {
+      if (pointer.pointerType === "mouse" && pointer.button !== 0) {
         return;
       }
       const isUi = this.isPointerOverMobileUi(pointer);
@@ -833,30 +929,306 @@ class MainScene extends Phaser.Scene {
     });
   }
 
+  private spawnXpFloat(x: number, y: number, amount: number) {
+    const label = this.add
+      .text(x, y - 12, `+${amount} XP`, {
+        color: "#f1e6b8",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+    label.setAlpha(0);
+    this.tweens.add({
+      targets: label,
+      y: y - 42,
+      alpha: 1,
+      duration: 200,
+      ease: "Sine.Out",
+      onComplete: () => {
+        this.tweens.add({
+          targets: label,
+          alpha: 0,
+          duration: 400,
+          ease: "Sine.In",
+          onComplete: () => label.destroy()
+        });
+      }
+    });
+  }
+
+  private spawnDamageFloat(x: number, y: number, amount: number) {
+    const label = this.add
+      .text(x, y - 10, `-${amount}`, {
+        color: "#d14b4b",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+    label.setAlpha(0);
+    this.tweens.add({
+      targets: label,
+      y: y - 36,
+      alpha: 1,
+      duration: 200,
+      ease: "Sine.Out",
+      onComplete: () => {
+        this.tweens.add({
+          targets: label,
+          alpha: 0,
+          duration: 400,
+          ease: "Sine.In",
+          onComplete: () => label.destroy()
+        });
+      }
+    });
+  }
+
+  private createDetailPanel() {
+    const { width, height } = this.scale;
+    const uiDepth = 40;
+    const panelWidth = Math.min(360, width - 40);
+    const panelHeight = Math.min(420, height - 80);
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelStroke = 0x000000;
+
+    const bg = this.add
+      .rectangle(panelX, panelY, panelWidth, panelHeight, 0xf2f2f2, 0.95)
+      .setStrokeStyle(2, panelStroke)
+      .setScrollFactor(0);
+
+    const title = this.add
+      .text(panelX - panelWidth / 2 + 16, panelY - panelHeight / 2 + 12, "STUDENT ID", {
+        color: "#1a1b1f",
+        fontSize: "14px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+
+    const portraitX = panelX - panelWidth / 2 + 60;
+    const portraitY = panelY - panelHeight / 2 + 72;
+    const portraitFrame = this.add
+      .rectangle(portraitX, portraitY, 68, 68, 0xffffff, 1)
+      .setStrokeStyle(2, panelStroke)
+      .setScrollFactor(0);
+    const portraitMask = this.add.graphics();
+    portraitMask.fillStyle(0xffffff);
+    portraitMask.fillRect(portraitX - 34, portraitY - 34, 68, 68);
+    const mask = portraitMask.createGeometryMask();
+    portraitMask.setScrollFactor(0);
+
+    this.detailSprite = this.add
+      .sprite(portraitX, portraitY + 8, mobtaroFrameKeys[0])
+      .setDisplaySize(56, 56)
+      .play("mobtaro_walk");
+    this.detailSprite.setScrollFactor(0);
+    this.detailSprite.setMask(mask);
+
+    const statsStartX = panelX - panelWidth / 2 + 140;
+    const statsStartY = panelY - panelHeight / 2 + 54;
+    const statRows = [
+      ["HP", "hp"],
+      ["SP", "sp"],
+      ["ATK", "attack"],
+      ["DEF", "defense"],
+      ["SPD", "speed"],
+      ["ASPD", "attackSpeed"],
+      ["LUCK", "luck"]
+    ];
+    statRows.forEach((row, index) => {
+      const [label, key] = row;
+      const y = statsStartY + index * 32;
+      const nameText = this.add
+        .text(statsStartX, y, label, {
+          color: "#1a1b1f",
+          fontSize: "12px",
+          fontFamily: "Times New Roman"
+        })
+        .setScrollFactor(0);
+      const valueText = this.add
+        .text(statsStartX + 60, y, "-", {
+          color: "#1a1b1f",
+          fontSize: "12px",
+          fontFamily: "Times New Roman"
+        })
+        .setScrollFactor(0);
+      const plusBox = this.add
+        .rectangle(statsStartX + 110, y + 6, 18, 18, 0xffffff, 1)
+        .setStrokeStyle(1, panelStroke)
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true });
+      const plusLabel = this.add
+        .text(statsStartX + 110, y + 6, "+", {
+          color: "#1a1b1f",
+          fontSize: "12px",
+          fontFamily: "Times New Roman"
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0);
+      plusBox.on("pointerdown", () => this.sendAssignStat(key));
+      this.detailFields.set(key, valueText);
+      this.detailPlusButtons.set(key, plusBox);
+      this.detailFields.set(`${key}-label`, nameText);
+      this.detailFields.set(`${key}-plus`, plusLabel);
+    });
+
+    const statPointText = this.add
+      .text(panelX - panelWidth / 2 + 16, panelY + panelHeight / 2 - 34, "SPT: 0", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    this.detailStatPoints = statPointText;
+
+    const closeBox = this.add
+      .rectangle(panelX + panelWidth / 2 - 20, panelY - panelHeight / 2 + 18, 22, 22, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const closeLabel = this.add
+      .text(panelX + panelWidth / 2 - 20, panelY - panelHeight / 2 + 18, "X", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    closeBox.on("pointerdown", () => this.toggleDetailPanel(false));
+
+    this.detailPanel = this.add.container(0, 0, [
+      bg,
+      title,
+      portraitFrame,
+      portraitMask,
+      this.detailSprite,
+      closeBox,
+      closeLabel,
+      statPointText
+    ]);
+    this.detailFields.forEach((value) => {
+      this.detailPanel?.add(value);
+    });
+    this.detailPlusButtons.forEach((value) => {
+      this.detailPanel?.add(value);
+    });
+    this.detailPanel.setScrollFactor(0);
+    this.detailPanel.setDepth(uiDepth);
+    this.detailPanel.setVisible(false);
+  }
+
+  private toggleDetailPanel(force?: boolean) {
+    if (!this.detailPanel) {
+      return;
+    }
+    const next = force ?? !this.detailPanel.visible;
+    this.detailPanel.setVisible(next);
+    if (next) {
+      this.mobileMenu?.setVisible(false);
+      this.mobilePanels.forEach((panel) => panel.setVisible(false));
+    }
+  }
+
+  private sendAssignStat(stat: string) {
+    if (!this.room || !this.room.connection.isOpen) {
+      return;
+    }
+    this.room.send("assignStat", { stat });
+  }
+
   private updateSelfHud(player: PlayerState) {
     const hp = player.hp ?? 0;
     const maxHp = player.maxHp ?? 100;
     const ratio = maxHp > 0 ? hp / maxHp : 0;
     this.selfIsDead = Boolean(player.isDead);
 
+    const level = player.level ?? 1;
     if (this.pcHpValueEl) {
       this.pcHpValueEl.textContent = `${hp} / ${maxHp}`;
     }
+    if (this.pcLevelEl) {
+      this.pcLevelEl.textContent = `${level}`;
+    }
     if (this.pcHpFillEl) {
       this.pcHpFillEl.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+    }
+    if (this.pcSpValueEl) {
+      const sp = player.sp ?? 0;
+      const maxSp = player.maxSp ?? 100;
+      this.pcSpValueEl.textContent = `${sp} / ${maxSp}`;
+    }
+    if (this.pcSpFillEl) {
+      const sp = player.sp ?? 0;
+      const maxSp = player.maxSp ?? 100;
+      const spRatio = maxSp > 0 ? sp / maxSp : 0;
+      this.pcSpFillEl.style.width = `${Math.max(0, Math.min(1, spRatio)) * 100}%`;
+    }
+    if (this.pcXpFillEl) {
+      const xp = player.xp ?? 0;
+      const level = player.level ?? 1;
+      const maxXp = this.getXpForLevel(level);
+      const xpRatio = maxXp > 0 ? xp / maxXp : 0;
+      this.pcXpFillEl.style.width = `${Math.max(0, Math.min(1, xpRatio)) * 100}%`;
+    }
+    if (this.pcXpLabelEl) {
+      this.pcXpLabelEl.textContent = "NEXT LV";
     }
 
     if (this.mobileHpValueText) {
       this.mobileHpValueText.setText(`${hp} / ${maxHp}`);
     }
+    if (this.mobileHpLabel) {
+      this.mobileHpLabel.setText(`HP / Lv: ${level}`);
+    }
     if (this.mobileHpFill) {
       const width = this.mobileHpBarWidth * Math.max(0, Math.min(1, ratio));
       this.mobileHpFill.setDisplaySize(width, this.mobileHpBarHeight);
+    }
+    if (this.mobileSpValueText) {
+      const sp = player.sp ?? 0;
+      const maxSp = player.maxSp ?? 100;
+      this.mobileSpValueText.setText(`${sp} / ${maxSp}`);
+    }
+    if (this.mobileSpFill) {
+      const sp = player.sp ?? 0;
+      const maxSp = player.maxSp ?? 100;
+      const spRatio = maxSp > 0 ? sp / maxSp : 0;
+      const width = this.mobileHpBarWidth * Math.max(0, Math.min(1, spRatio));
+      this.mobileSpFill.setDisplaySize(width, this.mobileHpBarHeight);
     }
 
     if (this.selfSprite) {
       this.selfSprite.setAlpha(this.selfIsDead ? 0.4 : 1);
     }
+
+    if (this.detailFields.size > 0) {
+      this.detailFields.get("hp")?.setText(`${player.hp ?? 0}`);
+      this.detailFields.get("sp")?.setText(`${player.sp ?? 0}`);
+      this.detailFields.get("attack")?.setText(`${player.attack ?? 0}`);
+      this.detailFields.get("defense")?.setText(`${player.defense ?? 0}`);
+      this.detailFields.get("speed")?.setText(`${player.speed ?? 0}`);
+      this.detailFields.get("attackSpeed")?.setText(`${player.attackSpeed ?? 0}`);
+      this.detailFields.get("luck")?.setText(`${player.luck ?? 0}`);
+    }
+    if (this.detailStatPoints) {
+      this.detailStatPoints.setText(`SPT: ${player.statPoints ?? 0}`);
+    }
+    if (this.detailPlusButtons.size > 0) {
+      const canSpend = (player.statPoints ?? 0) > 0;
+      this.detailPlusButtons.forEach((button) => {
+        button.setAlpha(canSpend ? 1 : 0.4);
+        button.disableInteractive();
+        if (canSpend) {
+          button.setInteractive({ useHandCursor: true });
+        }
+      });
+    }
+  }
+
+  private getXpForLevel(level: number) {
+    return 100 + (level - 1) * 25;
   }
 
   private formatHp(hp?: number, maxHp?: number) {
@@ -883,11 +1255,15 @@ const shouldShowVirtualStick = () => {
   return /Android|iPhone|iPad|iPod|Tablet/i.test(ua);
 };
 
+const isMobileDevice = shouldShowVirtualStick();
+const baseWidth = 512;
+const baseHeight = 768;
+const scaleFactor = isMobileDevice ? 0.84 : 1;
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "app",
-  width: 512,
-  height: 768,
+  width: Math.round(baseWidth * scaleFactor),
+  height: Math.round(baseHeight * scaleFactor),
   backgroundColor: "#ffffff",
   scale: {
     mode: Phaser.Scale.FIT,
