@@ -23,6 +23,16 @@ type RoomState = {
   tick: number;
 };
 
+type TapStart = {
+  x: number;
+  y: number;
+  time: number;
+  isUi: boolean;
+  isStick: boolean;
+  moved: boolean;
+  firedHold: boolean;
+};
+
 class MainScene extends Phaser.Scene {
   private client?: Client;
   private room?: Room<RoomState>;
@@ -31,6 +41,8 @@ class MainScene extends Phaser.Scene {
   private playerSprites = new Map<string, Phaser.GameObjects.Rectangle>();
   private enemySprites = new Map<string, Phaser.GameObjects.Rectangle>();
   private statusText?: Phaser.GameObjects.Text;
+  private selfSprite?: Phaser.GameObjects.Rectangle;
+  private attackKey?: Phaser.Input.Keyboard.Key;
   private wasd?: {
     W: Phaser.Input.Keyboard.Key;
     A: Phaser.Input.Keyboard.Key;
@@ -40,15 +52,26 @@ class MainScene extends Phaser.Scene {
   private stickBase?: Phaser.GameObjects.Arc;
   private stickKnob?: Phaser.GameObjects.Arc;
   private stickPointerId?: number;
+  private stickBasePosition?: { x: number; y: number };
   private stickVector = { x: 0, y: 0 };
   private stickRadius = 48;
+  private mobileFabButton?: Phaser.GameObjects.Arc;
+  private mobileMenu?: Phaser.GameObjects.Container;
+  private mobilePanels = new Map<string, Phaser.GameObjects.Container>();
+  private mobileTapStarts = new Map<number, TapStart>();
+  private mobileHoldTimers = new Map<number, Phaser.Time.TimerEvent>();
+  private lastAimWorld?: { x: number; y: number };
+  private lastMoveDirection?: { x: number; y: number };
 
   constructor() {
     super("main");
   }
 
   preload() {
-    // No assets yet. Placeholder for minimal boot.
+    this.load.image(
+      "background",
+      new URL("../../map/school2.png", import.meta.url).href
+    );
   }
 
   create() {
@@ -56,18 +79,52 @@ class MainScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys(
       "W,A,S,D"
     ) as MainScene["wasd"];
+    this.attackKey = this.input.keyboard.addKey(
+      Phaser.Input.Keyboard.KeyCodes.SPACE
+    );
+    this.input.keyboard.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
+    this.attackKey.on("down", () =>
+      this.handleAttackFromPointer(this.input.activePointer, "keyboard")
+    );
+
+    const background = this.add
+      .image(0, 0, "background")
+      .setOrigin(0, 0)
+      .setScale(4);
+    this.cameras.main.setBounds(
+      0,
+      0,
+      background.width * 4,
+      background.height * 4
+    );
 
     this.statusText = this.add
-      .text(12, 12, "connecting...", {
+      .text(this.scale.width / 2, 8, "connecting...", {
         color: "#e6e6e6",
         fontSize: "16px",
         fontFamily: "Times New Roman"
       })
-      .setDepth(10);
+      .setDepth(10)
+      .setScrollFactor(0)
+      .setOrigin(0.5, 0);
 
-    if (shouldShowVirtualStick()) {
+    const isMobile = shouldShowVirtualStick();
+    document.body.classList.toggle("is-mobile", isMobile);
+    document.body.classList.toggle("is-desktop", !isMobile);
+
+    if (isMobile) {
       this.createVirtualStick();
+      this.createMobileUi();
+      this.setupPointerAttack();
+    } else {
+      this.setupPointerAttack();
     }
+
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (this.isPointerWithinCanvas(pointer)) {
+        this.lastAimWorld = { x: pointer.worldX, y: pointer.worldY };
+      }
+    });
 
     this.joinServer().catch((error) => {
       console.error(error);
@@ -76,7 +133,7 @@ class MainScene extends Phaser.Scene {
   }
 
   update() {
-    if (!this.room || !this.cursors || !this.playerId) {
+    if (!this.room || !this.cursors || !this.playerId || !this.room.connection.isOpen) {
       return;
     }
 
@@ -94,6 +151,14 @@ class MainScene extends Phaser.Scene {
     const combinedX = clamp(inputX + this.stickVector.x, -1, 1);
     const combinedY = clamp(inputY + this.stickVector.y, -1, 1);
 
+    if (combinedX !== 0 || combinedY !== 0) {
+      const length = Math.hypot(combinedX, combinedY);
+      this.lastMoveDirection = {
+        x: combinedX / length,
+        y: combinedY / length
+      };
+    }
+
     this.room.send("move", { x: combinedX, y: combinedY });
   }
 
@@ -101,6 +166,7 @@ class MainScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const baseX = 80;
     const baseY = height - 80;
+    this.stickBasePosition = { x: baseX, y: baseY };
 
     this.stickBase = this.add
       .circle(baseX, baseY, this.stickRadius, 0x1a1b1f, 0.6)
@@ -186,6 +252,10 @@ class MainScene extends Phaser.Scene {
         .rectangle(player.x, player.y, size, size, fill)
         .setStrokeStyle(1, stroke);
       this.playerSprites.set(id, sprite);
+      if (isSelf) {
+        this.selfSprite = sprite;
+        this.cameras.main.startFollow(sprite);
+      }
       player.onChange(() => {
         const ownedSprite = this.playerSprites.get(id);
         if (ownedSprite) {
@@ -199,6 +269,10 @@ class MainScene extends Phaser.Scene {
       if (sprite) {
         sprite.destroy();
         this.playerSprites.delete(id);
+      }
+      if (id === this.playerId) {
+        this.cameras.main.stopFollow();
+        this.selfSprite = undefined;
       }
     });
 
@@ -227,6 +301,434 @@ class MainScene extends Phaser.Scene {
     this.room.state.onChange(() => {
       this.statusText?.setText(`connected | tick ${this.room?.state.tick ?? 0}`);
     });
+
+    this.room.onLeave(() => {
+      this.statusText?.setText("connection closed");
+      this.room = undefined;
+    });
+  }
+
+  private createMobileUi() {
+    const { width, height } = this.scale;
+    const uiDepth = 30;
+    const panelStroke = 0x000000;
+    const labelStyle = {
+      color: "#e6e6e6",
+      fontSize: "11px",
+      fontFamily: "Times New Roman"
+    };
+
+    const barWidth = 96;
+    const barHeight = 6;
+    const hpX = 12;
+    const hpY = 12;
+    this.add
+      .text(hpX, hpY, "HP", labelStyle)
+      .setDepth(uiDepth)
+      .setScrollFactor(0);
+    this.add
+      .rectangle(hpX + barWidth / 2, hpY + 16, barWidth, barHeight, 0x8b1e1e, 0.9)
+      .setScrollFactor(0)
+      .setDepth(uiDepth);
+
+    const spY = hpY + 26;
+    this.add
+      .text(hpX, spY, "SP", labelStyle)
+      .setDepth(uiDepth)
+      .setScrollFactor(0);
+    this.add
+      .rectangle(hpX + barWidth / 2, spY + 16, barWidth, barHeight, 0x1b4a8b, 0.9)
+      .setScrollFactor(0)
+      .setDepth(uiDepth);
+
+    const fabRadius = 22;
+    const fabX = width - 28;
+    const fabY = 28;
+    this.mobileFabButton = this.add
+      .circle(fabX, fabY, fabRadius, 0x1a1d22, 0.9)
+      .setStrokeStyle(2, panelStroke)
+      .setScrollFactor(0)
+      .setDepth(uiDepth)
+      .setInteractive({ useHandCursor: true });
+    this.add
+      .text(fabX, fabY, "+", {
+        color: "#ffffff",
+        fontSize: "18px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(uiDepth + 1);
+
+    const menuWidth = 160;
+    const menuHeight = 180;
+    const menuX = width / 2;
+    const menuY = height / 2;
+    const menuBg = this.add
+      .rectangle(menuX, menuY, menuWidth, menuHeight, 0x101216, 0.9)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setDepth(uiDepth + 2);
+
+    const menuButtons: Array<{
+      label: string;
+      onPress: () => void;
+    }> = [
+      {
+        label: "Inventory",
+        onPress: () => this.toggleMobilePanel("inventory")
+      },
+      {
+        label: "Settings",
+        onPress: () => this.toggleMobilePanel("settings")
+      }
+    ];
+
+    const menuItems: Phaser.GameObjects.GameObject[] = [menuBg];
+    const buttonWidth = menuWidth - 24;
+    const buttonHeight = 30;
+    const buttonStartY = menuY - menuHeight / 2 + 20 + buttonHeight / 2;
+    menuButtons.forEach((button, index) => {
+      const y = buttonStartY + index * (buttonHeight + 8);
+      const box = this.add
+        .rectangle(menuX, y, buttonWidth, buttonHeight, 0x1a1d22, 0.9)
+        .setStrokeStyle(1, panelStroke)
+        .setScrollFactor(0)
+        .setDepth(uiDepth + 3)
+        .setInteractive({ useHandCursor: true });
+      const label = this.add
+        .text(menuX, y, button.label, {
+          color: "#e6e6e6",
+          fontSize: "12px",
+          fontFamily: "Times New Roman"
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(uiDepth + 4);
+      box.on("pointerdown", () => {
+        button.onPress();
+        this.mobileMenu?.setVisible(false);
+      });
+      menuItems.push(box, label);
+    });
+
+    const menu = this.add.container(0, 0, menuItems);
+    menu.setDepth(uiDepth + 2);
+    menu.setVisible(false);
+    this.mobileMenu = menu;
+
+    this.mobileFabButton.on("pointerdown", () => {
+      if (!this.mobileMenu) {
+        return;
+      }
+      this.mobileMenu.setVisible(!this.mobileMenu.visible);
+    });
+
+    const panelWidth = Math.min(280, width - 40);
+    const panelHeight = Math.min(280, height - 200);
+    const panelX = width / 2;
+    const panelY = height / 2;
+
+    const inventoryPanel = this.createMobileOverlayPanel(
+      "Inventory",
+      panelX,
+      panelY,
+      panelWidth,
+      panelHeight,
+      ["Items", "Tap to inspect"]
+    );
+    const settingsPanel = this.createMobileOverlayPanel(
+      "Settings",
+      panelX,
+      panelY,
+      panelWidth,
+      panelHeight,
+      ["Coming soon"]
+    );
+    [inventoryPanel, settingsPanel].forEach((panel) => {
+      panel.setDepth(uiDepth + 5);
+    });
+    this.mobilePanels.set("inventory", inventoryPanel);
+    this.mobilePanels.set("settings", settingsPanel);
+  }
+
+  private createMobileOverlayPanel(
+    title: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    lines: string[]
+  ) {
+    const panelStroke = 0x000000;
+    const bg = this.add
+      .rectangle(x, y, width, height, 0x0f1115, 0.92)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0);
+    const titleText = this.add
+      .text(x - width / 2 + 12, y - height / 2 + 10, title, {
+        color: "#e6e6e6",
+        fontSize: "14px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    const bodyText = this.add
+      .text(x - width / 2 + 12, y - height / 2 + 36, lines.join("\n"), {
+        color: "#c8c8c8",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    const closeBox = this.add
+      .rectangle(x + width / 2 - 18, y - height / 2 + 16, 24, 24, 0x1a1d22, 0.95)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const closeLabel = this.add
+      .text(x + width / 2 - 18, y - height / 2 + 16, "X", {
+        color: "#e6e6e6",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    const panel = this.add.container(0, 0, [
+      bg,
+      titleText,
+      bodyText,
+      closeBox,
+      closeLabel
+    ]);
+    panel.setVisible(false);
+    closeBox.on("pointerdown", () => panel.setVisible(false));
+    return panel;
+  }
+
+  private toggleMobilePanel(name: string) {
+    const panel = this.mobilePanels.get(name);
+    if (!panel) {
+      return;
+    }
+    const nextVisible = !panel.visible;
+    this.mobilePanels.forEach((entry) => entry.setVisible(false));
+    panel.setVisible(nextVisible);
+  }
+
+  private setupPointerAttack() {
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (pointer.button !== 0) {
+        return;
+      }
+      const isUi = this.isPointerOverMobileUi(pointer);
+      const isStick = this.isPointerOverStick(pointer);
+      const start: TapStart = {
+        x: pointer.x,
+        y: pointer.y,
+        time: pointer.downTime,
+        isUi,
+        isStick,
+        moved: false,
+        firedHold: false
+      };
+      this.mobileTapStarts.set(pointer.id, start);
+      if (isUi || isStick) {
+        return;
+      }
+      const holdTimer = this.time.addEvent({
+        delay: 240,
+        loop: true,
+        callback: () => {
+          const current = this.mobileTapStarts.get(pointer.id);
+          if (!current || current.moved) {
+            return;
+          }
+          current.firedHold = true;
+          this.handleAttackFromPointer(pointer, "hold");
+        }
+      });
+      this.mobileHoldTimers.set(pointer.id, holdTimer);
+    });
+
+    this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+      const start = this.mobileTapStarts.get(pointer.id);
+      if (!start) {
+        return;
+      }
+      this.mobileTapStarts.delete(pointer.id);
+      const holdTimer = this.mobileHoldTimers.get(pointer.id);
+      if (holdTimer) {
+        holdTimer.destroy();
+        this.mobileHoldTimers.delete(pointer.id);
+      }
+      const distance = Math.hypot(pointer.x - start.x, pointer.y - start.y);
+      if (distance > 12 || start.moved) {
+        return;
+      }
+      if (start.isUi || start.isStick) {
+        return;
+      }
+      if (start.firedHold) {
+        return;
+      }
+      if (pointer.upTime - start.time <= 240) {
+        this.handleAttackFromPointer(pointer, "tap");
+      }
+    });
+
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      const start = this.mobileTapStarts.get(pointer.id);
+      if (!start) {
+        return;
+      }
+      const distance = Math.hypot(pointer.x - start.x, pointer.y - start.y);
+      if (distance > 12) {
+        start.moved = true;
+        const holdTimer = this.mobileHoldTimers.get(pointer.id);
+        if (holdTimer) {
+          holdTimer.destroy();
+          this.mobileHoldTimers.delete(pointer.id);
+        }
+      }
+    });
+  }
+
+  private isPointerOverMobileUi(pointer: Phaser.Input.Pointer) {
+    const targets: Phaser.GameObjects.GameObject[] = [];
+    if (this.mobileFabButton) {
+      targets.push(this.mobileFabButton);
+    }
+    if (this.mobileMenu?.visible) {
+      targets.push(this.mobileMenu);
+    }
+    this.mobilePanels.forEach((panel) => {
+      if (panel.visible) {
+        targets.push(panel);
+      }
+    });
+
+    return targets.some((target) =>
+      Phaser.Geom.Rectangle.Contains(target.getBounds(), pointer.x, pointer.y)
+    );
+  }
+
+  private isPointerOverStick(pointer: Phaser.Input.Pointer) {
+    if (!this.stickBasePosition) {
+      return false;
+    }
+    const distance = Math.hypot(
+      pointer.x - this.stickBasePosition.x,
+      pointer.y - this.stickBasePosition.y
+    );
+    return distance <= this.stickRadius * 1.2;
+  }
+
+  private handleAttackFromPointer(
+    pointer: Phaser.Input.Pointer,
+    source: string
+  ) {
+    if (!this.selfSprite) {
+      return;
+    }
+    let target = this.lastAimWorld;
+    if (this.isPointerWithinCanvas(pointer)) {
+      target = { x: pointer.worldX, y: pointer.worldY };
+    }
+    if (!target && this.lastMoveDirection) {
+      target = {
+        x: this.selfSprite.x + this.lastMoveDirection.x * 240,
+        y: this.selfSprite.y + this.lastMoveDirection.y * 240
+      };
+    }
+    if (!target) {
+      return;
+    }
+    this.lastAimWorld = target;
+    this.fireAttack(source, target);
+  }
+
+  private handleAttackFromButton(source: string) {
+    if (!this.selfSprite) {
+      return;
+    }
+    if (this.lastAimWorld) {
+      this.fireAttack(source, this.lastAimWorld);
+      return;
+    }
+    if (!this.lastMoveDirection) {
+      return;
+    }
+    const fallbackTarget = {
+      x: this.selfSprite.x + this.lastMoveDirection.x * 240,
+      y: this.selfSprite.y + this.lastMoveDirection.y * 240
+    };
+    this.fireAttack(source, fallbackTarget);
+  }
+
+  private fireAttack(source: string, target: { x: number; y: number }) {
+    if (!this.selfSprite) {
+      return;
+    }
+    this.spawnAttackEffect(this.selfSprite.x, this.selfSprite.y, target.x, target.y);
+    if (!this.room || !this.room.connection.isOpen) {
+      return;
+    }
+    this.room.send("attack", { source, x: target.x, y: target.y });
+  }
+
+  private spawnAttackEffect(
+    originX: number,
+    originY: number,
+    targetX: number,
+    targetY: number
+  ) {
+    const dx = targetX - originX;
+    const dy = targetY - originY;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 6) {
+      return;
+    }
+    const maxDistance = 420;
+    const travelDistance = Math.min(distance, maxDistance);
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const finalX = originX + nx * travelDistance;
+    const finalY = originY + ny * travelDistance;
+    const angle = Math.atan2(ny, nx);
+
+    const orb = this.add
+      .circle(originX, originY, 6, 0x9fdcff, 0.95)
+      .setDepth(9);
+    const trail = this.add
+      .rectangle(originX, originY, 18, 4, 0x9fdcff, 0.35)
+      .setDepth(8)
+      .setRotation(angle);
+    const glow = this.add
+      .circle(originX, originY, 10, 0x6fb6ff, 0.25)
+      .setDepth(7);
+
+    const duration = Math.max(160, travelDistance * 0.8);
+    this.tweens.add({
+      targets: [orb, trail, glow],
+      x: finalX,
+      y: finalY,
+      duration,
+      ease: "Sine.Out",
+      onComplete: () => {
+        orb.destroy();
+        trail.destroy();
+        glow.destroy();
+      }
+    });
+  }
+
+  private isPointerWithinCanvas(pointer: Phaser.Input.Pointer) {
+    return (
+      pointer.x >= 0 &&
+      pointer.y >= 0 &&
+      pointer.x <= this.scale.width &&
+      pointer.y <= this.scale.height
+    );
   }
 }
 
@@ -241,9 +743,13 @@ const shouldShowVirtualStick = () => {
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "app",
-  width: 960,
-  height: 540,
-  backgroundColor: "#121315",
+  width: 512,
+  height: 768,
+  backgroundColor: "#ffffff",
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH
+  },
   scene: MainScene
 };
 

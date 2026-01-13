@@ -23,6 +23,10 @@ export class SurvivorRoom extends Room<SurvivorState> {
       player.vx = Math.max(-1, Math.min(1, message.x));
       player.vy = Math.max(-1, Math.min(1, message.y));
     });
+
+    this.onMessage("attack", (_client: Client) => {
+      // Input is accepted but ignored until combat is implemented.
+    });
   }
 
   onJoin(client: Client) {
@@ -42,8 +46,16 @@ export class SurvivorRoom extends Room<SurvivorState> {
     this.state.tick += 1;
 
     for (const player of this.state.players.values()) {
-      player.x = clamp(player.x + player.vx * speed * deltaSeconds, 40, 920);
-      player.y = clamp(player.y + player.vy * speed * deltaSeconds, 40, 500);
+      player.x = clamp(
+        player.x + player.vx * speed * deltaSeconds,
+        0,
+        MAP_WIDTH
+      );
+      player.y = clamp(
+        player.y + player.vy * speed * deltaSeconds,
+        0,
+        MAP_HEIGHT
+      );
     }
 
     this.spawnTimer += dt;
@@ -69,6 +81,9 @@ const randomRange = (min: number, max: number) =>
 
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
+
+const MAP_WIDTH = 1536 * 4;
+const MAP_HEIGHT = 1024 * 4;
 
 const cryptoRandomId = () =>
   `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;

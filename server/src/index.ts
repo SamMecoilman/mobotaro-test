@@ -16,7 +16,7 @@ gameServer.define("survivor", SurvivorRoom);
 
 app.get("/health", async () => ({ ok: true }));
 
-app.listen({ port }, (err) => {
+app.listen({ port, host: "0.0.0.0" }, (err) => {
   if (err) {
     console.error(err);
     process.exit(1);
