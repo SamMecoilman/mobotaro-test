@@ -1,4 +1,4 @@
-# ⚠️ AI INSTRUCTIONS / SOURCE OF TRUTH
+# AI INSTRUCTIONS / SOURCE OF TRUTH
 
 この README.md は本プロジェクトにおける **唯一の正本**。
 AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
@@ -61,20 +61,6 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
   - ルームベース（インスタンス管理が主）
   - Survivor Battle Area は Colyseus Room として実装する
 
-## 入力方式（更新）
-
-- 操作入力は共通の **MoveInput（x, y: -1.0〜1.0）** に統一
-- クライアント側で各入力方式を MoveInput に変換し、サーバへ送信
-- サーバは MoveInput のみを信頼して処理（入力方式非依存）
-
-### 対応入力
-- **PC**
-  - WASD
-  - 矢印キー
-- **モバイル（スマホ／タブレット）**
-  - 仮想スティック（左下・移動のみの最小UI）「ボタンにより表示・非表示可能」
-
-
 ### サーバ
 - **Node.js + TypeScript**
 - フレームワーク：**Fastify または NestJS**
@@ -104,34 +90,16 @@ AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
 
 ---
 
-<!-- AUTO:CURRENT_STATE:BEGIN -->
 # CURRENT STATE（いまの作業位置）
 
 - ブランチ：reboot
-- フェーズ：土台構築（完了）→ 入力統一（完了）
-- 到達点：
-  - TypeScript + Phaser（client）起動（Vite）
-  - TypeScript + Colyseus（server）起動（Fastify + ws-transport）
-  - client ↔ server 接続
-  - サーバtick稼働
-  - 敵スポーン（仮：1.5s間隔）
-  - MoveInput（x,y:-1..1）へ入力を統一（WASD/矢印 + 仮想スティック）
-  - 仮想スティックUI実装（左下）
-- ローカル起動：
-  - npm install
-  - npm run dev
-  - http://localhost:5173
-  - （任意）http://localhost:2567/health
-- 既知の課題：
-  - PC表示でも仮想スティックが出てしまい、キーボード入力が無反応になるケースがある（入力の優先/判定/フォーカスの不具合疑い）
-- 次の目標（直近）：
-  - スマホ/タブレットのみ仮想スティック表示（PCでは非表示）
-  - PCではWASD/矢印で確実に移動できる（無反応解消）
-- 次の目標（中期）：
-  - state同期を描画に統一（player/enemyをstate駆動）
-  - Survivor戦闘の最小ループ
-  - LvUP→強化選択→効果適用（最小実装）
-<!-- AUTO:CURRENT_STATE:END -->
+- フェーズ：**土台構築**
+- 目標（最小ゴール）：
+  - 起動できる
+  - ゲームループが回る
+  - プレイヤーが生成される
+  - 敵が一定間隔でスポーンする（ダミー可）
+- UI / 演出 / 永続化：未着手
 
 ---
 
