@@ -6,9 +6,17 @@ type MoveMessage = {
   y: number;
 };
 
+type AttackMessage = {
+  x: number;
+  y: number;
+};
+
 export class SurvivorRoom extends Room<SurvivorState> {
   private spawnTimer = 0;
   private maxEnemies = 25;
+  private enemyHitCooldown = new Map<string, number>();
+  private playerHitCooldown = new Map<string, number>();
+  private playerDeadUntil = new Map<string, number>();
 
   onCreate() {
     this.setState(new SurvivorState());
@@ -16,7 +24,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
 
     this.onMessage("move", (client: Client, message: MoveMessage) => {
       const player = this.state.players.get(client.sessionId);
-      if (!player) {
+      if (!player || player.isDead) {
         return;
       }
 
@@ -24,8 +32,28 @@ export class SurvivorRoom extends Room<SurvivorState> {
       player.vy = Math.max(-1, Math.min(1, message.y));
     });
 
-    this.onMessage("attack", (_client: Client) => {
-      // Input is accepted but ignored until combat is implemented.
+    this.onMessage("attack", (client: Client, message: AttackMessage) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.isDead) {
+        return;
+      }
+      const target = this.findClosestEnemy(message.x, message.y, ATTACK_RADIUS);
+      if (!target) {
+        return;
+      }
+      const cooldownKey = `${client.sessionId}:${target.id}`;
+      const now = Date.now();
+      const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
+      if (now - lastHit < ENEMY_HIT_COOLDOWN_MS) {
+        return;
+      }
+      this.enemyHitCooldown.set(cooldownKey, now);
+      target.hp = Math.max(0, target.hp - PLAYER_ATTACK_DAMAGE);
+      if (target.hp <= 0) {
+        this.state.enemies.delete(target.id);
+        player.xp += ENEMY_XP_REWARD;
+        this.applyLevelUps(player);
+      }
     });
   }
 
@@ -39,13 +67,43 @@ export class SurvivorRoom extends Room<SurvivorState> {
     this.state.players.delete(client.sessionId);
   }
 
+  private findClosestEnemy(
+    x: number,
+    y: number,
+    radius: number
+  ): Enemy | undefined {
+    let closest: Enemy | undefined;
+    let closestDistance = radius;
+    for (const enemy of this.state.enemies.values()) {
+      const distance = Math.hypot(enemy.x - x, enemy.y - y);
+      if (distance <= closestDistance) {
+        closestDistance = distance;
+        closest = enemy;
+      }
+    }
+    return closest;
+  }
+
   private tick(dt: number) {
     const deltaSeconds = dt / 1000;
     const speed = 220;
+    const now = Date.now();
 
     this.state.tick += 1;
 
     for (const player of this.state.players.values()) {
+      if (player.isDead) {
+        const reviveAt = this.playerDeadUntil.get(player.id) ?? 0;
+        if (now >= reviveAt) {
+          player.isDead = false;
+          player.hp = player.maxHp;
+          player.x = MAP_WIDTH / 2;
+          player.y = MAP_HEIGHT / 2;
+        }
+        player.vx = 0;
+        player.vy = 0;
+        continue;
+      }
       player.x = clamp(
         player.x + player.vx * speed * deltaSeconds,
         0,
@@ -56,6 +114,31 @@ export class SurvivorRoom extends Room<SurvivorState> {
         0,
         MAP_HEIGHT
       );
+    }
+
+    for (const enemy of this.state.enemies.values()) {
+      for (const player of this.state.players.values()) {
+        if (player.isDead) {
+          continue;
+        }
+        const distance = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+        if (distance > CONTACT_RADIUS) {
+          continue;
+        }
+        const cooldownKey = `${enemy.id}:${player.id}`;
+        const lastHit = this.playerHitCooldown.get(cooldownKey) ?? 0;
+        if (now - lastHit < PLAYER_HIT_COOLDOWN_MS) {
+          continue;
+        }
+        this.playerHitCooldown.set(cooldownKey, now);
+        player.hp = Math.max(0, player.hp - ENEMY_CONTACT_DAMAGE);
+        if (player.hp <= 0) {
+          player.isDead = true;
+          player.vx = 0;
+          player.vy = 0;
+          this.playerDeadUntil.set(player.id, now + PLAYER_RESPAWN_MS);
+        }
+      }
     }
 
     this.spawnTimer += dt;
@@ -74,6 +157,18 @@ export class SurvivorRoom extends Room<SurvivorState> {
       }
     }
   }
+
+  private applyLevelUps(player: Player) {
+    while (player.xp >= this.getXpForLevel(player.level)) {
+      player.xp -= this.getXpForLevel(player.level);
+      player.level += 1;
+      player.statPoints += 5;
+    }
+  }
+
+  private getXpForLevel(level: number) {
+    return BASE_XP_TO_LEVEL + (level - 1) * XP_PER_LEVEL;
+  }
 }
 
 const randomRange = (min: number, max: number) =>
@@ -84,6 +179,16 @@ const clamp = (value: number, min: number, max: number) =>
 
 const MAP_WIDTH = 1536 * 4;
 const MAP_HEIGHT = 1024 * 4;
+const ATTACK_RADIUS = 120;
+const PLAYER_ATTACK_DAMAGE = 10;
+const ENEMY_CONTACT_DAMAGE = 8;
+const ENEMY_HIT_COOLDOWN_MS = 200;
+const PLAYER_HIT_COOLDOWN_MS = 600;
+const PLAYER_RESPAWN_MS = 1500;
+const CONTACT_RADIUS = 32;
+const ENEMY_XP_REWARD = 25;
+const BASE_XP_TO_LEVEL = 100;
+const XP_PER_LEVEL = 25;
 
 const cryptoRandomId = () =>
   `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;

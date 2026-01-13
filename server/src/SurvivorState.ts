@@ -8,6 +8,11 @@ export class Player extends Schema {
   @type("number") vx = 0;
   @type("number") vy = 0;
   @type("number") hp = 100;
+  @type("number") maxHp = 100;
+  @type("boolean") isDead = false;
+  @type("number") xp = 0;
+  @type("number") level = 1;
+  @type("number") statPoints = 0;
 }
 
 export class Enemy extends Schema {
@@ -15,7 +20,8 @@ export class Enemy extends Schema {
   @type("string") kind = "enemy";
   @type("number") x = 0;
   @type("number") y = 0;
-  @type("number") hp = 1;
+  @type("number") hp = 30;
+  @type("number") maxHp = 30;
 }
 
 export class SurvivorState extends Schema {

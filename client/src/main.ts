@@ -7,6 +7,8 @@ type PlayerState = {
   y: number;
   kind: string;
   hp?: number;
+  maxHp?: number;
+  isDead?: boolean;
 };
 
 type EnemyState = {
@@ -15,6 +17,7 @@ type EnemyState = {
   y: number;
   kind: string;
   hp?: number;
+  maxHp?: number;
 };
 
 type RoomState = {
@@ -23,14 +26,45 @@ type RoomState = {
   tick: number;
 };
 
+const extractFrameNumber = (path: string) => {
+  const matches = path.match(/(\d+)/g);
+  if (!matches || matches.length === 0) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Number.parseInt(matches[matches.length - 1], 10);
+};
+
+const MOBTARO_FPS = 8;
+const mobtaroFrameEntries = Object.entries(
+  import.meta.glob("../../images/mobtaro_sprite/*.png", {
+    eager: true,
+    import: "default"
+  })
+) as Array<[string, string]>;
+const mobtaroSortedFrames = [...mobtaroFrameEntries].sort((left, right) => {
+  const leftNumber = extractFrameNumber(left[0]);
+  const rightNumber = extractFrameNumber(right[0]);
+  if (leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+  return left[0].localeCompare(right[0]);
+});
+const mobtaroFrameKeys = mobtaroSortedFrames.map(
+  (_entry, index) => `mobtaro_${index}`
+);
+const mobtaroFrameUrls = mobtaroSortedFrames.map((entry) => entry[1]);
+
 type TapStart = {
   x: number;
   y: number;
+  worldX: number;
+  worldY: number;
   time: number;
   isUi: boolean;
   isStick: boolean;
   moved: boolean;
   firedHold: boolean;
+  pointerType: string;
 };
 
 class MainScene extends Phaser.Scene {
@@ -40,9 +74,16 @@ class MainScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private playerSprites = new Map<string, Phaser.GameObjects.Rectangle>();
   private enemySprites = new Map<string, Phaser.GameObjects.Rectangle>();
+  private enemyHpTexts = new Map<string, Phaser.GameObjects.Text>();
   private statusText?: Phaser.GameObjects.Text;
-  private selfSprite?: Phaser.GameObjects.Rectangle;
-  private attackKey?: Phaser.Input.Keyboard.Key;
+  private selfSprite?: Phaser.GameObjects.Sprite;
+  private selfIsDead = false;
+  private pcHpValueEl?: HTMLElement | null;
+  private pcHpFillEl?: HTMLElement | null;
+  private mobileHpValueText?: Phaser.GameObjects.Text;
+  private mobileHpFill?: Phaser.GameObjects.Rectangle;
+  private mobileHpBarWidth = 0;
+  private mobileHpBarHeight = 0;
   private wasd?: {
     W: Phaser.Input.Keyboard.Key;
     A: Phaser.Input.Keyboard.Key;
@@ -72,6 +113,9 @@ class MainScene extends Phaser.Scene {
       "background",
       new URL("../../map/school2.png", import.meta.url).href
     );
+    mobtaroFrameUrls.forEach((url, index) => {
+      this.load.image(mobtaroFrameKeys[index], url);
+    });
   }
 
   create() {
@@ -79,13 +123,6 @@ class MainScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys(
       "W,A,S,D"
     ) as MainScene["wasd"];
-    this.attackKey = this.input.keyboard.addKey(
-      Phaser.Input.Keyboard.KeyCodes.SPACE
-    );
-    this.input.keyboard.addCapture([Phaser.Input.Keyboard.KeyCodes.SPACE]);
-    this.attackKey.on("down", () =>
-      this.handleAttackFromPointer(this.input.activePointer, "keyboard")
-    );
 
     const background = this.add
       .image(0, 0, "background")
@@ -108,9 +145,22 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setOrigin(0.5, 0);
 
+    if (!this.anims.exists("mobtaro_walk")) {
+      this.anims.create({
+        key: "mobtaro_walk",
+        frames: mobtaroFrameKeys.map((key) => ({ key })),
+        frameRate: MOBTARO_FPS,
+        repeat: -1
+      });
+    }
+
     const isMobile = shouldShowVirtualStick();
     document.body.classList.toggle("is-mobile", isMobile);
     document.body.classList.toggle("is-desktop", !isMobile);
+    if (!isMobile) {
+      this.pcHpValueEl = document.getElementById("pc-hp-value");
+      this.pcHpFillEl = document.getElementById("pc-hp-fill");
+    }
 
     if (isMobile) {
       this.createVirtualStick();
@@ -134,6 +184,9 @@ class MainScene extends Phaser.Scene {
 
   update() {
     if (!this.room || !this.cursors || !this.playerId || !this.room.connection.isOpen) {
+      return;
+    }
+    if (this.selfIsDead) {
       return;
     }
 
@@ -245,21 +298,32 @@ class MainScene extends Phaser.Scene {
 
     this.room.state.players.onAdd((player, id) => {
       const isSelf = id === this.playerId;
-      const size = isSelf ? 20 : 18;
-      const stroke = isSelf ? 0x1b2b3a : 0x1f3b27;
-      const fill = isSelf ? 0x4aa3ff : 0x7bd88f;
-      const sprite = this.add
-        .rectangle(player.x, player.y, size, size, fill)
-        .setStrokeStyle(1, stroke);
-      this.playerSprites.set(id, sprite);
       if (isSelf) {
+        const sprite = this.add
+          .sprite(player.x, player.y, mobtaroFrameKeys[0])
+          .setDisplaySize(40, 40)
+          .play("mobtaro_walk");
         this.selfSprite = sprite;
         this.cameras.main.startFollow(sprite);
+        this.updateSelfHud(player);
+      } else {
+        const size = 18;
+        const stroke = 0x1f3b27;
+        const fill = 0x7bd88f;
+        const sprite = this.add
+          .rectangle(player.x, player.y, size, size, fill)
+          .setStrokeStyle(1, stroke);
+        this.playerSprites.set(id, sprite);
       }
       player.onChange(() => {
-        const ownedSprite = this.playerSprites.get(id);
-        if (ownedSprite) {
-          ownedSprite.setPosition(player.x, player.y);
+        if (id === this.playerId) {
+          this.selfSprite?.setPosition(player.x, player.y);
+          this.updateSelfHud(player);
+          return;
+        }
+        const otherSprite = this.playerSprites.get(id);
+        if (otherSprite) {
+          otherSprite.setPosition(player.x, player.y);
         }
       });
     });
@@ -272,6 +336,7 @@ class MainScene extends Phaser.Scene {
       }
       if (id === this.playerId) {
         this.cameras.main.stopFollow();
+        this.selfSprite?.destroy();
         this.selfSprite = undefined;
       }
     });
@@ -281,12 +346,26 @@ class MainScene extends Phaser.Scene {
         .rectangle(enemy.x, enemy.y, 14, 14, 0xff7b7b)
         .setStrokeStyle(1, 0x4b1b1b);
       this.enemySprites.set(id, sprite);
+      const hpText = this.add
+        .text(enemy.x, enemy.y - 14, this.formatHp(enemy.hp, enemy.maxHp), {
+          color: "#f1f1f1",
+          fontSize: "10px",
+          fontFamily: "Times New Roman"
+        })
+        .setOrigin(0.5)
+        .setDepth(9);
+      this.enemyHpTexts.set(id, hpText);
     });
 
     this.room.state.enemies.onChange((enemy, id) => {
       const sprite = this.enemySprites.get(id);
       if (sprite) {
         sprite.setPosition(enemy.x, enemy.y);
+      }
+      const hpText = this.enemyHpTexts.get(id);
+      if (hpText) {
+        hpText.setText(this.formatHp(enemy.hp, enemy.maxHp));
+        hpText.setPosition(enemy.x, enemy.y - 14);
       }
     });
 
@@ -295,6 +374,11 @@ class MainScene extends Phaser.Scene {
       if (sprite) {
         sprite.destroy();
         this.enemySprites.delete(id);
+      }
+      const hpText = this.enemyHpTexts.get(id);
+      if (hpText) {
+        hpText.destroy();
+        this.enemyHpTexts.delete(id);
       }
     });
 
@@ -317,19 +401,31 @@ class MainScene extends Phaser.Scene {
       fontSize: "11px",
       fontFamily: "Times New Roman"
     };
+    const valueStyle = {
+      color: "#b9b9b9",
+      fontSize: "9px",
+      fontFamily: "Times New Roman"
+    };
 
     const barWidth = 96;
     const barHeight = 6;
+    this.mobileHpBarWidth = barWidth;
+    this.mobileHpBarHeight = barHeight;
     const hpX = 12;
     const hpY = 12;
     this.add
       .text(hpX, hpY, "HP", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
-    this.add
-      .rectangle(hpX + barWidth / 2, hpY + 16, barWidth, barHeight, 0x8b1e1e, 0.9)
+    this.mobileHpFill = this.add
+      .rectangle(hpX, hpY + 16, barWidth, barHeight, 0x8b1e1e, 0.9)
+      .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth);
+    this.mobileHpValueText = this.add
+      .text(hpX, hpY + 24, "100 / 100", valueStyle)
+      .setDepth(uiDepth)
+      .setScrollFactor(0);
 
     const spY = hpY + 26;
     this.add
@@ -340,6 +436,10 @@ class MainScene extends Phaser.Scene {
       .rectangle(hpX + barWidth / 2, spY + 16, barWidth, barHeight, 0x1b4a8b, 0.9)
       .setScrollFactor(0)
       .setDepth(uiDepth);
+    this.add
+      .text(hpX, spY + 24, "100 / 100", valueStyle)
+      .setDepth(uiDepth)
+      .setScrollFactor(0);
 
     const fabRadius = 22;
     const fabX = width - 28;
@@ -525,11 +625,14 @@ class MainScene extends Phaser.Scene {
       const start: TapStart = {
         x: pointer.x,
         y: pointer.y,
+        worldX: pointer.worldX,
+        worldY: pointer.worldY,
         time: pointer.downTime,
         isUi,
         isStick,
         moved: false,
-        firedHold: false
+        firedHold: false,
+        pointerType: pointer.pointerType
       };
       this.mobileTapStarts.set(pointer.id, start);
       if (isUi || isStick) {
@@ -540,7 +643,7 @@ class MainScene extends Phaser.Scene {
         loop: true,
         callback: () => {
           const current = this.mobileTapStarts.get(pointer.id);
-          if (!current || current.moved) {
+          if (!current) {
             return;
           }
           current.firedHold = true;
@@ -584,11 +687,6 @@ class MainScene extends Phaser.Scene {
       const distance = Math.hypot(pointer.x - start.x, pointer.y - start.y);
       if (distance > 12) {
         start.moved = true;
-        const holdTimer = this.mobileHoldTimers.get(pointer.id);
-        if (holdTimer) {
-          holdTimer.destroy();
-          this.mobileHoldTimers.delete(pointer.id);
-        }
       }
     });
   }
@@ -647,6 +745,19 @@ class MainScene extends Phaser.Scene {
     this.fireAttack(source, target);
   }
 
+  private handleAttackFromWorld(
+    worldX: number,
+    worldY: number,
+    source: string
+  ) {
+    if (!this.selfSprite) {
+      return;
+    }
+    const target = { x: worldX, y: worldY };
+    this.lastAimWorld = target;
+    this.fireAttack(source, target);
+  }
+
   private handleAttackFromButton(source: string) {
     if (!this.selfSprite) {
       return;
@@ -666,7 +777,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private fireAttack(source: string, target: { x: number; y: number }) {
-    if (!this.selfSprite) {
+    if (!this.selfSprite || this.selfIsDead) {
       return;
     }
     this.spawnAttackEffect(this.selfSprite.x, this.selfSprite.y, target.x, target.y);
@@ -720,6 +831,38 @@ class MainScene extends Phaser.Scene {
         glow.destroy();
       }
     });
+  }
+
+  private updateSelfHud(player: PlayerState) {
+    const hp = player.hp ?? 0;
+    const maxHp = player.maxHp ?? 100;
+    const ratio = maxHp > 0 ? hp / maxHp : 0;
+    this.selfIsDead = Boolean(player.isDead);
+
+    if (this.pcHpValueEl) {
+      this.pcHpValueEl.textContent = `${hp} / ${maxHp}`;
+    }
+    if (this.pcHpFillEl) {
+      this.pcHpFillEl.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+    }
+
+    if (this.mobileHpValueText) {
+      this.mobileHpValueText.setText(`${hp} / ${maxHp}`);
+    }
+    if (this.mobileHpFill) {
+      const width = this.mobileHpBarWidth * Math.max(0, Math.min(1, ratio));
+      this.mobileHpFill.setDisplaySize(width, this.mobileHpBarHeight);
+    }
+
+    if (this.selfSprite) {
+      this.selfSprite.setAlpha(this.selfIsDead ? 0.4 : 1);
+    }
+  }
+
+  private formatHp(hp?: number, maxHp?: number) {
+    const current = hp ?? 0;
+    const max = maxHp ?? 0;
+    return `${current} / ${max}`;
   }
 
   private isPointerWithinCanvas(pointer: Phaser.Input.Pointer) {
