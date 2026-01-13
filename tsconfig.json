@@ -8,7 +8,9 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "noEmit": true
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false
   },
   "include": ["client/src", "server/src", "vite.config.ts"]
 }
