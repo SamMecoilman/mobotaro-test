@@ -1,4 +1,4 @@
-# ⚠️ AI INSTRUCTIONS / SOURCE OF TRUTH
+# AI INSTRUCTIONS / SOURCE OF TRUTH
 
 この README.md は本プロジェクトにおける **唯一の正本**。
 AI（ChatGPT / Codex CLI）は必ず本ファイルを最初に読み、
