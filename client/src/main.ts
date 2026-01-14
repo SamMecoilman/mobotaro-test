@@ -112,6 +112,12 @@ class MainScene extends Phaser.Scene {
   private mobileGoldText?: Phaser.GameObjects.Text;
   private mobileHpBarWidth = 0;
   private mobileHpBarHeight = 0;
+  private mobileFabLabel?: Phaser.GameObjects.Text;
+  private mobileMenuCenter?: { x: number; y: number };
+  private mobilePanelCenters = new Map<string, { x: number; y: number }>();
+  private mobileItemSlots: Phaser.GameObjects.Rectangle[] = [];
+  private mobileSkillSlots: Phaser.GameObjects.Rectangle[] = [];
+  private mobileResizeTimer?: Phaser.Time.TimerEvent;
   private wasd?: {
     W: Phaser.Input.Keyboard.Key;
     A: Phaser.Input.Keyboard.Key;
@@ -202,17 +208,17 @@ class MainScene extends Phaser.Scene {
     }
     this.input.addPointer(2);
 
-    if (isMobile) {
-      this.createVirtualStick();
-      this.createMobileUi();
-      this.setupPointerAttack();
-      this.scale.on("resize", () => {
-        this.layoutMobileStick();
-      });
-    } else {
-      this.setupPointerAttack();
-      this.createDetailPanel();
-    }
+      if (isMobile) {
+        this.createVirtualStick();
+        this.createMobileUi();
+        this.setupPointerAttack();
+        this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
+          this.scheduleMobileUiResize(gameSize.width, gameSize.height);
+        });
+      } else {
+        this.setupPointerAttack();
+        this.createDetailPanel();
+      }
 
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (this.isPointerWithinCanvas(pointer)) {
@@ -469,7 +475,30 @@ class MainScene extends Phaser.Scene {
         if (!message) {
           return;
         }
-        this.spawnDamageFloat(message.x, message.y, message.amount);
+        const resolvedKind =
+          message.targetId && message.targetId === this.playerId ? "received" : message.kind;
+        this.spawnDamageFloat(
+          message.x,
+          message.y,
+          message.amount,
+          resolvedKind,
+          message.critical
+        );
+        if (message.targetId === this.playerId) {
+          this.spawnSelfDamageEffect(
+            this.selfSprite?.x ?? message.x,
+            this.selfSprite?.y ?? message.y
+          );
+        }
+      });
+      this.room.onMessage("attackEffect", (message) => {
+        if (!message) {
+          return;
+        }
+        if (message.attackerId && message.attackerId === this.playerId) {
+          return;
+        }
+        this.spawnAttackEffect(message.fromX, message.fromY, message.toX, message.toY);
       });
 
     this.room.onLeave(() => {
@@ -537,7 +566,7 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(uiDepth)
       .setInteractive({ useHandCursor: true });
-    this.add
+    this.mobileFabLabel = this.add
       .text(fabX, fabY, "+", {
         color: "#ffffff",
         fontSize: "18px",
@@ -607,6 +636,7 @@ class MainScene extends Phaser.Scene {
     menu.setDepth(uiDepth + 2);
     menu.setVisible(false);
     this.mobileMenu = menu;
+    this.mobileMenuCenter = { x: menuX, y: menuY };
 
     this.mobileFabButton.on("pointerdown", () => {
       if (!this.mobileMenu) {
@@ -643,9 +673,13 @@ class MainScene extends Phaser.Scene {
       panel.setDepth(uiDepth + 5);
     });
     this.mobilePanels.set("inventory", inventoryPanel);
+    this.mobilePanelCenters.set("inventory", { x: panelX, y: panelY });
     this.mobilePanels.set("settings", settingsPanel);
+    this.mobilePanelCenters.set("settings", { x: panelX, y: panelY });
 
     this.createDetailPanel();
+    this.createMobileBottomSlots();
+    this.layoutMobileUi();
   }
 
   private createMobileOverlayPanel(
@@ -699,6 +733,72 @@ class MainScene extends Phaser.Scene {
     panel.setVisible(false);
     closeBox.on("pointerdown", () => panel.setVisible(false));
     return panel;
+  }
+
+  private createMobileBottomSlots() {
+    const uiDepth = 30;
+    const slotSize = 34;
+    const slotGap = 6;
+    for (let i = 0; i < 5; i += 1) {
+      const slot = this.add
+        .rectangle(0, 0, slotSize, slotSize, 0xf4f4f4, 1)
+        .setStrokeStyle(1, 0x000000)
+        .setScrollFactor(0)
+        .setDepth(uiDepth);
+      this.mobileItemSlots.push(slot);
+    }
+    for (let i = 0; i < 3; i += 1) {
+      const slot = this.add
+        .rectangle(0, 0, slotSize, slotSize, 0xf4f4f4, 1)
+        .setStrokeStyle(1, 0x000000)
+        .setScrollFactor(0)
+        .setDepth(uiDepth);
+      this.mobileSkillSlots.push(slot);
+    }
+  }
+
+  private layoutMobileUi() {
+    if (!isMobileDevice) {
+      return;
+    }
+    const { width, height } = this.scale;
+    const fabX = width - 28;
+    const fabY = 28;
+    this.mobileFabButton?.setPosition(fabX, fabY);
+    this.mobileFabLabel?.setPosition(fabX, fabY);
+
+    if (this.mobileMenu && this.mobileMenuCenter) {
+      const deltaX = width / 2 - this.mobileMenuCenter.x;
+      const deltaY = height / 2 - this.mobileMenuCenter.y;
+      this.mobileMenu.setPosition(deltaX, deltaY);
+    }
+    this.mobilePanels.forEach((panel, key) => {
+      const center = this.mobilePanelCenters.get(key);
+      if (!center) {
+        return;
+      }
+      const deltaX = width / 2 - center.x;
+      const deltaY = height / 2 - center.y;
+      panel.setPosition(deltaX, deltaY);
+    });
+
+    const slotSize = 34;
+    const slotGap = 6;
+    const groupGap = 16;
+    const itemGroupWidth = 5 * slotSize + 4 * slotGap;
+    const skillGroupWidth = 3 * slotSize + 2 * slotGap;
+    const totalWidth = itemGroupWidth + groupGap + skillGroupWidth;
+    const startX = width / 2 - totalWidth / 2 + slotSize / 2;
+    const y = height - slotSize / 2 - 12;
+    this.mobileItemSlots.forEach((slot, index) => {
+      const x = startX + index * (slotSize + slotGap);
+      slot.setPosition(x, y);
+    });
+    const skillStartX = startX + itemGroupWidth + groupGap;
+    this.mobileSkillSlots.forEach((slot, index) => {
+      const x = skillStartX + index * (slotSize + slotGap);
+      slot.setPosition(x, y);
+    });
   }
 
   private toggleMobilePanel(name: string) {
@@ -957,12 +1057,22 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private spawnDamageFloat(x: number, y: number, amount: number) {
+  private spawnDamageFloat(
+    x: number,
+    y: number,
+    amount: number,
+    kind?: string,
+    critical?: boolean
+  ) {
+    const isCritical = Boolean(critical);
+    const color =
+      isCritical ? "#4a0d0d" : kind === "received" ? "#ff2f2f" : "#ff7a7a";
     const label = this.add
       .text(x, y - 10, `-${amount}`, {
-        color: "#d14b4b",
+        color,
         fontSize: "12px",
-        fontFamily: "Times New Roman"
+        fontFamily: "Times New Roman",
+        fontStyle: isCritical ? "bold" : "normal"
       })
       .setOrigin(0.5)
       .setDepth(10);
@@ -982,6 +1092,19 @@ class MainScene extends Phaser.Scene {
           onComplete: () => label.destroy()
         });
       }
+    });
+  }
+
+  private spawnSelfDamageEffect(x: number, y: number) {
+    const pulse = this.add
+      .circle(x, y, 24, 0xff2f2f, 0.35)
+      .setDepth(8);
+    this.tweens.add({
+      targets: pulse,
+      alpha: 0,
+      duration: 260,
+      ease: "Sine.Out",
+      onComplete: () => pulse.destroy()
     });
   }
 
@@ -1119,6 +1242,75 @@ class MainScene extends Phaser.Scene {
     this.detailPanel.setVisible(false);
   }
 
+  private rebuildDetailPanelForResize() {
+    if (!this.detailPanel) {
+      return;
+    }
+    const wasVisible = this.detailPanel.visible;
+    this.destroyDetailPanel();
+    this.createDetailPanel();
+    if (wasVisible) {
+      this.detailPanel?.setVisible(true);
+    }
+  }
+
+  private destroyDetailPanel() {
+    this.detailPanel?.destroy(true);
+    this.detailPanel = undefined;
+    this.detailSprite = undefined;
+    this.detailStatPoints = undefined;
+    this.detailFields.clear();
+    this.detailPlusButtons.clear();
+  }
+
+  private rebuildMobileUiForResize() {
+    this.destroyMobileUi();
+    this.createMobileUi();
+    this.layoutMobileStick();
+  }
+
+  private scheduleMobileUiResize(width: number, height: number) {
+    if (width < 10 || height < 10) {
+      return;
+    }
+    this.mobileResizeTimer?.remove(false);
+    this.mobileResizeTimer = this.time.delayedCall(80, () => {
+      if (this.scale.width < 10 || this.scale.height < 10) {
+        this.scheduleMobileUiResize(this.scale.width, this.scale.height);
+        return;
+      }
+      this.rebuildMobileUiForResize();
+    });
+  }
+
+  private destroyMobileUi() {
+    this.mobileHpLabel?.destroy();
+    this.mobileHpLabel = undefined;
+    this.mobileHpFill?.destroy();
+    this.mobileHpFill = undefined;
+    this.mobileHpValueText?.destroy();
+    this.mobileHpValueText = undefined;
+    this.mobileSpFill?.destroy();
+    this.mobileSpFill = undefined;
+    this.mobileSpValueText?.destroy();
+    this.mobileSpValueText = undefined;
+    this.mobileFabButton?.destroy();
+    this.mobileFabButton = undefined;
+    this.mobileFabLabel?.destroy();
+    this.mobileFabLabel = undefined;
+    this.mobileMenu?.destroy(true);
+    this.mobileMenu = undefined;
+    this.mobileMenuCenter = undefined;
+    this.mobilePanels.forEach((panel) => panel.destroy(true));
+    this.mobilePanels.clear();
+    this.mobilePanelCenters.clear();
+    this.mobileItemSlots.forEach((slot) => slot.destroy());
+    this.mobileItemSlots = [];
+    this.mobileSkillSlots.forEach((slot) => slot.destroy());
+    this.mobileSkillSlots = [];
+    this.destroyDetailPanel();
+  }
+
   private toggleDetailPanel(force?: boolean) {
     if (!this.detailPanel) {
       return;
@@ -1252,24 +1444,55 @@ const clamp = (value: number, min: number, max: number) =>
 
 const shouldShowVirtualStick = () => {
   const ua = navigator.userAgent;
-  return /Android|iPhone|iPad|iPod|Tablet/i.test(ua);
+  const isUaMobile = /Android|iPhone|iPad|iPod|Tablet/i.test(ua);
+  const hasTouch = navigator.maxTouchPoints > 0;
+  const smallScreen = Math.min(window.innerWidth, window.innerHeight) <= 900;
+  return isUaMobile || (hasTouch && smallScreen);
 };
 
 const isMobileDevice = shouldShowVirtualStick();
 const baseWidth = 512;
 const baseHeight = 768;
-const scaleFactor = isMobileDevice ? 0.84 : 1;
+const getViewportSize = () => {
+  if (window.visualViewport) {
+    return {
+      width: Math.round(window.visualViewport.width),
+      height: Math.round(window.visualViewport.height)
+    };
+  }
+  return { width: window.innerWidth, height: window.innerHeight };
+};
+const initialViewport = getViewportSize();
+const initialSize = isMobileDevice
+  ? { width: initialViewport.width, height: initialViewport.height }
+  : { width: baseWidth, height: baseHeight };
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "app",
-  width: Math.round(baseWidth * scaleFactor),
-  height: Math.round(baseHeight * scaleFactor),
+  width: initialSize.width,
+  height: initialSize.height,
   backgroundColor: "#ffffff",
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    mode: isMobileDevice ? Phaser.Scale.RESIZE : Phaser.Scale.FIT,
+    autoCenter: isMobileDevice ? Phaser.Scale.NO_CENTER : Phaser.Scale.CENTER_BOTH
   },
   scene: MainScene
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
+if (isMobileDevice) {
+  window.addEventListener("resize", () => {
+    const viewport = getViewportSize();
+    game.scale.resize(viewport.width, viewport.height);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => {
+      const viewport = getViewportSize();
+      game.scale.resize(viewport.width, viewport.height);
+    });
+    window.visualViewport.addEventListener("scroll", () => {
+      const viewport = getViewportSize();
+      game.scale.resize(viewport.width, viewport.height);
+    });
+  }
+}

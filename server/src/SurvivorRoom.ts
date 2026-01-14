@@ -20,6 +20,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
   private maxEnemies = 25;
   private enemyHitCooldown = new Map<string, number>();
   private playerHitCooldown = new Map<string, number>();
+  private playerContactCooldown = new Map<string, number>();
   private playerDeadUntil = new Map<string, number>();
 
   onCreate() {
@@ -41,6 +42,71 @@ export class SurvivorRoom extends Room<SurvivorState> {
       if (!player || player.isDead) {
         return;
       }
+      if (FRIENDLY_FIRE) {
+        const targetPlayer = this.findClosestPlayer(
+          player.id,
+          message.x,
+          message.y,
+          ATTACK_RADIUS
+        );
+        if (targetPlayer) {
+          const cooldownKey = `${client.sessionId}:${targetPlayer.id}`;
+          const now = Date.now();
+          const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
+          if (now - lastHit >= ENEMY_HIT_COOLDOWN_MS) {
+            this.enemyHitCooldown.set(cooldownKey, now);
+            const isCritical = Math.random() < Math.min(0.5, player.luck * CRIT_CHANCE_PER_LUCK);
+            const damage = Math.round(
+              PLAYER_ATTACK_DAMAGE * (isCritical ? CRIT_DAMAGE_MULTIPLIER : 1)
+            );
+            targetPlayer.hp = Math.max(0, targetPlayer.hp - damage);
+            this.broadcast("damageFloat", {
+              x: targetPlayer.x,
+              y: targetPlayer.y,
+              amount: damage,
+              kind: "dealt",
+              critical: isCritical,
+              targetId: targetPlayer.id
+            });
+            this.broadcast("attackEffect", {
+              fromX: player.x,
+              fromY: player.y,
+              toX: message.x,
+              toY: message.y,
+              attackerId: player.id
+            });
+            if (targetPlayer.hp <= 0) {
+              targetPlayer.isDead = true;
+              targetPlayer.vx = 0;
+              targetPlayer.vy = 0;
+              const gainedXp = Math.floor(targetPlayer.xp * 0.5);
+              if (gainedXp > 0) {
+                player.xp += gainedXp;
+                this.applyLevelUps(player);
+                this.broadcast("xpFloat", {
+                  x: targetPlayer.x,
+                  y: targetPlayer.y,
+                  amount: gainedXp
+                });
+              }
+              targetPlayer.xp = 0;
+              targetPlayer.level = 1;
+              targetPlayer.statPoints = 0;
+              targetPlayer.attack = 5;
+              targetPlayer.defense = 2;
+              targetPlayer.speed = 1;
+              targetPlayer.attackSpeed = 1;
+              targetPlayer.luck = 1;
+              targetPlayer.maxHp = 100;
+              targetPlayer.hp = 0;
+              targetPlayer.maxSp = 50;
+              targetPlayer.sp = 0;
+              this.playerDeadUntil.set(targetPlayer.id, now + PLAYER_RESPAWN_MS);
+            }
+            return;
+          }
+        }
+      }
       const target = this.findClosestEnemy(message.x, message.y, ATTACK_RADIUS);
       if (!target) {
         return;
@@ -52,11 +118,25 @@ export class SurvivorRoom extends Room<SurvivorState> {
         return;
       }
       this.enemyHitCooldown.set(cooldownKey, now);
-      target.hp = Math.max(0, target.hp - PLAYER_ATTACK_DAMAGE);
+      const isCritical = Math.random() < Math.min(0.5, player.luck * CRIT_CHANCE_PER_LUCK);
+      const damage = Math.round(
+        PLAYER_ATTACK_DAMAGE * (isCritical ? CRIT_DAMAGE_MULTIPLIER : 1)
+      );
+      target.hp = Math.max(0, target.hp - damage);
       this.broadcast("damageFloat", {
         x: target.x,
         y: target.y,
-        amount: PLAYER_ATTACK_DAMAGE
+        amount: damage,
+        kind: "dealt",
+        critical: isCritical,
+        targetId: target.id
+      });
+      this.broadcast("attackEffect", {
+        fromX: player.x,
+        fromY: player.y,
+        toX: message.x,
+        toY: message.y,
+        attackerId: player.id
       });
       if (target.hp <= 0) {
         this.state.enemies.delete(target.id);
@@ -134,6 +214,27 @@ export class SurvivorRoom extends Room<SurvivorState> {
     return closest;
   }
 
+  private findClosestPlayer(
+    attackerId: string,
+    x: number,
+    y: number,
+    radius: number
+  ): Player | undefined {
+    let closest: Player | undefined;
+    let closestDistance = radius;
+    for (const player of this.state.players.values()) {
+      if (player.id === attackerId || player.isDead) {
+        continue;
+      }
+      const distance = Math.hypot(player.x - x, player.y - y);
+      if (distance <= closestDistance) {
+        closestDistance = distance;
+        closest = player;
+      }
+    }
+    return closest;
+  }
+
   private tick(dt: number) {
     const deltaSeconds = dt / 1000;
     const speed = 220;
@@ -182,10 +283,14 @@ export class SurvivorRoom extends Room<SurvivorState> {
         }
         this.playerHitCooldown.set(cooldownKey, now);
         player.hp = Math.max(0, player.hp - ENEMY_CONTACT_DAMAGE);
+        this.applyKnockback(player, enemy.x, enemy.y);
         this.broadcast("damageFloat", {
           x: player.x,
           y: player.y,
-          amount: ENEMY_CONTACT_DAMAGE
+          amount: ENEMY_CONTACT_DAMAGE,
+          kind: "received",
+          critical: false,
+          targetId: player.id
         });
         if (player.hp <= 0) {
           player.isDead = true;
@@ -204,6 +309,33 @@ export class SurvivorRoom extends Room<SurvivorState> {
           player.maxSp = 50;
           player.sp = 0;
           this.playerDeadUntil.set(player.id, now + PLAYER_RESPAWN_MS);
+        }
+      }
+    }
+    if (FRIENDLY_FIRE) {
+      const players = Array.from(this.state.players.values());
+      for (let i = 0; i < players.length; i += 1) {
+        const playerA = players[i];
+        if (playerA.isDead) {
+          continue;
+        }
+        for (let j = i + 1; j < players.length; j += 1) {
+          const playerB = players[j];
+          if (playerB.isDead) {
+            continue;
+          }
+          const distance = Math.hypot(playerA.x - playerB.x, playerA.y - playerB.y);
+          if (distance > PLAYER_CONTACT_RADIUS) {
+            continue;
+          }
+          const pairKey = `${playerA.id}:${playerB.id}`;
+          const lastHit = this.playerContactCooldown.get(pairKey) ?? 0;
+          if (now - lastHit < PLAYER_CONTACT_COOLDOWN_MS) {
+            continue;
+          }
+          this.playerContactCooldown.set(pairKey, now);
+          this.applyPlayerContactDamage(playerA, playerB, now);
+          this.applyPlayerContactDamage(playerB, playerA, now);
         }
       }
     }
@@ -236,6 +368,46 @@ export class SurvivorRoom extends Room<SurvivorState> {
   private getXpForLevel(level: number) {
     return BASE_XP_TO_LEVEL + (level - 1) * XP_PER_LEVEL;
   }
+
+  private applyKnockback(player: Player, sourceX: number, sourceY: number) {
+    const dx = player.x - sourceX;
+    const dy = player.y - sourceY;
+    const distance = Math.hypot(dx, dy) || 1;
+    const knockback = PLAYER_KNOCKBACK_DISTANCE;
+    player.x = clamp(player.x + (dx / distance) * knockback, 0, MAP_WIDTH);
+    player.y = clamp(player.y + (dy / distance) * knockback, 0, MAP_HEIGHT);
+  }
+
+  private applyPlayerContactDamage(player: Player, source: Player, now: number) {
+    player.hp = Math.max(0, player.hp - PLAYER_CONTACT_DAMAGE);
+    this.applyKnockback(player, source.x, source.y);
+    this.broadcast("damageFloat", {
+      x: player.x,
+      y: player.y,
+      amount: PLAYER_CONTACT_DAMAGE,
+      kind: "received",
+      critical: false,
+      targetId: player.id
+    });
+    if (player.hp <= 0) {
+      player.isDead = true;
+      player.vx = 0;
+      player.vy = 0;
+      player.level = 1;
+      player.xp = 0;
+      player.statPoints = 0;
+      player.attack = 5;
+      player.defense = 2;
+      player.speed = 1;
+      player.attackSpeed = 1;
+      player.luck = 1;
+      player.maxHp = 100;
+      player.hp = 0;
+      player.maxSp = 50;
+      player.sp = 0;
+      this.playerDeadUntil.set(player.id, now + PLAYER_RESPAWN_MS);
+    }
+  }
 }
 
 const randomRange = (min: number, max: number) =>
@@ -256,6 +428,13 @@ const CONTACT_RADIUS = 32;
 const ENEMY_XP_REWARD = 25;
 const BASE_XP_TO_LEVEL = 100;
 const XP_PER_LEVEL = 25;
+const CRIT_CHANCE_PER_LUCK = 0.02;
+const CRIT_DAMAGE_MULTIPLIER = 1.8;
+const PLAYER_KNOCKBACK_DISTANCE = 18;
+const FRIENDLY_FIRE = true;
+const PLAYER_CONTACT_RADIUS = 26;
+const PLAYER_CONTACT_DAMAGE = 2;
+const PLAYER_CONTACT_COOLDOWN_MS = 600;
 
 const cryptoRandomId = () =>
   `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
