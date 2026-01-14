@@ -101,10 +101,14 @@ class MainScene extends Phaser.Scene {
   private detailSprite?: Phaser.GameObjects.Sprite;
   private detailFields = new Map<string, Phaser.GameObjects.Text>();
   private detailPlusButtons = new Map<string, Phaser.GameObjects.Rectangle>();
+  private detailPlusLabels = new Map<string, Phaser.GameObjects.Text>();
   private detailStatPoints?: Phaser.GameObjects.Text;
+  private detailLevelText?: Phaser.GameObjects.Text;
+  private detailXpText?: Phaser.GameObjects.Text;
   private mobileHpValueText?: Phaser.GameObjects.Text;
   private mobileHpFill?: Phaser.GameObjects.Rectangle;
   private mobileHpLabel?: Phaser.GameObjects.Text;
+  private mobileSpLabel?: Phaser.GameObjects.Text;
   private mobileSpValueText?: Phaser.GameObjects.Text;
   private mobileSpFill?: Phaser.GameObjects.Rectangle;
   private mobileXpFill?: Phaser.GameObjects.Rectangle;
@@ -543,7 +547,7 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0);
 
     const spY = hpY + 30;
-    this.add
+    this.mobileSpLabel = this.add
       .text(hpX, spY, "SP", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
@@ -888,9 +892,33 @@ class MainScene extends Phaser.Scene {
   }
 
   private isPointerOverMobileUi(pointer: Phaser.Input.Pointer) {
+    if (this.detailPanel?.visible) {
+      return true;
+    }
     const targets: Phaser.GameObjects.GameObject[] = [];
     if (this.mobileFabButton) {
       targets.push(this.mobileFabButton);
+    }
+    if (this.mobileFabLabel) {
+      targets.push(this.mobileFabLabel);
+    }
+    if (this.mobileHpLabel) {
+      targets.push(this.mobileHpLabel);
+    }
+    if (this.mobileHpFill) {
+      targets.push(this.mobileHpFill);
+    }
+    if (this.mobileHpValueText) {
+      targets.push(this.mobileHpValueText);
+    }
+    if (this.mobileSpLabel) {
+      targets.push(this.mobileSpLabel);
+    }
+    if (this.mobileSpFill) {
+      targets.push(this.mobileSpFill);
+    }
+    if (this.mobileSpValueText) {
+      targets.push(this.mobileSpValueText);
     }
     if (this.mobileMenu?.visible) {
       targets.push(this.mobileMenu);
@@ -900,6 +928,8 @@ class MainScene extends Phaser.Scene {
         targets.push(panel);
       }
     });
+    this.mobileItemSlots.forEach((slot) => targets.push(slot));
+    this.mobileSkillSlots.forEach((slot) => targets.push(slot));
 
     return targets.some((target) =>
       Phaser.Geom.Rectangle.Contains(target.getBounds(), pointer.x, pointer.y)
@@ -1130,8 +1160,33 @@ class MainScene extends Phaser.Scene {
       })
       .setScrollFactor(0);
 
+    const infoX = panelX - panelWidth / 2 + 16;
+    const infoY = panelY - panelHeight / 2 + 40;
+    this.detailLevelText = this.add
+      .text(infoX, infoY, "LV: 1", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    this.detailXpText = this.add
+      .text(infoX, infoY + 16, "XP: 0 / 100", {
+        color: "#1a1b1f",
+        fontSize: "11px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    const statPointText = this.add
+      .text(infoX, infoY + 32, "SPT: 0", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    this.detailStatPoints = statPointText;
+
     const portraitX = panelX - panelWidth / 2 + 60;
-    const portraitY = panelY - panelHeight / 2 + 72;
+    const portraitY = panelY - panelHeight / 2 + 90;
     const portraitFrame = this.add
       .rectangle(portraitX, portraitY, 68, 68, 0xffffff, 1)
       .setStrokeStyle(2, panelStroke)
@@ -1150,15 +1205,15 @@ class MainScene extends Phaser.Scene {
     this.detailSprite.setMask(mask);
 
     const statsStartX = panelX - panelWidth / 2 + 140;
-    const statsStartY = panelY - panelHeight / 2 + 54;
+    const statsStartY = panelY - panelHeight / 2 + 110;
     const statRows = [
       ["HP", "hp"],
       ["SP", "sp"],
-      ["ATK", "attack"],
-      ["DEF", "defense"],
-      ["SPD", "speed"],
-      ["ASPD", "attackSpeed"],
-      ["LUCK", "luck"]
+      ["ATK", "atk"],
+      ["DEF", "def"],
+      ["LUCK", "luck"],
+      ["MOVE", "moveSpeed"],
+      ["ATK SPD", "atkSpeed"]
     ];
     statRows.forEach((row, index) => {
       const [label, key] = row;
@@ -1194,17 +1249,8 @@ class MainScene extends Phaser.Scene {
       this.detailFields.set(key, valueText);
       this.detailPlusButtons.set(key, plusBox);
       this.detailFields.set(`${key}-label`, nameText);
-      this.detailFields.set(`${key}-plus`, plusLabel);
+      this.detailPlusLabels.set(key, plusLabel);
     });
-
-    const statPointText = this.add
-      .text(panelX - panelWidth / 2 + 16, panelY + panelHeight / 2 - 34, "SPT: 0", {
-        color: "#1a1b1f",
-        fontSize: "12px",
-        fontFamily: "Times New Roman"
-      })
-      .setScrollFactor(0);
-    this.detailStatPoints = statPointText;
 
     const closeBox = this.add
       .rectangle(panelX + panelWidth / 2 - 20, panelY - panelHeight / 2 + 18, 22, 22, 0xffffff, 1)
@@ -1224,6 +1270,8 @@ class MainScene extends Phaser.Scene {
     this.detailPanel = this.add.container(0, 0, [
       bg,
       title,
+      this.detailLevelText,
+      this.detailXpText,
       portraitFrame,
       portraitMask,
       this.detailSprite,
@@ -1235,6 +1283,9 @@ class MainScene extends Phaser.Scene {
       this.detailPanel?.add(value);
     });
     this.detailPlusButtons.forEach((value) => {
+      this.detailPanel?.add(value);
+    });
+    this.detailPlusLabels.forEach((value) => {
       this.detailPanel?.add(value);
     });
     this.detailPanel.setScrollFactor(0);
@@ -1259,8 +1310,11 @@ class MainScene extends Phaser.Scene {
     this.detailPanel = undefined;
     this.detailSprite = undefined;
     this.detailStatPoints = undefined;
+    this.detailLevelText = undefined;
+    this.detailXpText = undefined;
     this.detailFields.clear();
     this.detailPlusButtons.clear();
+    this.detailPlusLabels.clear();
   }
 
   private rebuildMobileUiForResize() {
@@ -1290,6 +1344,8 @@ class MainScene extends Phaser.Scene {
     this.mobileHpFill = undefined;
     this.mobileHpValueText?.destroy();
     this.mobileHpValueText = undefined;
+    this.mobileSpLabel?.destroy();
+    this.mobileSpLabel = undefined;
     this.mobileSpFill?.destroy();
     this.mobileSpFill = undefined;
     this.mobileSpValueText?.destroy();
@@ -1327,7 +1383,7 @@ class MainScene extends Phaser.Scene {
     if (!this.room || !this.room.connection.isOpen) {
       return;
     }
-    this.room.send("assignStat", { stat });
+    this.room.send("assignStat", { stat, amount: 1 });
   }
 
   private updateSelfHud(player: PlayerState) {
@@ -1398,14 +1454,23 @@ class MainScene extends Phaser.Scene {
     if (this.detailFields.size > 0) {
       this.detailFields.get("hp")?.setText(`${player.hp ?? 0}`);
       this.detailFields.get("sp")?.setText(`${player.sp ?? 0}`);
-      this.detailFields.get("attack")?.setText(`${player.attack ?? 0}`);
-      this.detailFields.get("defense")?.setText(`${player.defense ?? 0}`);
-      this.detailFields.get("speed")?.setText(`${player.speed ?? 0}`);
-      this.detailFields.get("attackSpeed")?.setText(`${player.attackSpeed ?? 0}`);
+      this.detailFields.get("atk")?.setText(`${player.attack ?? 0}`);
+      this.detailFields.get("def")?.setText(`${player.defense ?? 0}`);
+      this.detailFields.get("moveSpeed")?.setText(`${player.speed ?? 0}`);
+      this.detailFields.get("atkSpeed")?.setText(`${player.attackSpeed ?? 0}`);
       this.detailFields.get("luck")?.setText(`${player.luck ?? 0}`);
     }
     if (this.detailStatPoints) {
       this.detailStatPoints.setText(`SPT: ${player.statPoints ?? 0}`);
+    }
+    if (this.detailLevelText) {
+      this.detailLevelText.setText(`LV: ${player.level ?? 1}`);
+    }
+    if (this.detailXpText) {
+      const xp = player.xp ?? 0;
+      const level = player.level ?? 1;
+      const maxXp = this.getXpForLevel(level);
+      this.detailXpText.setText(`XP: ${xp} / ${maxXp}`);
     }
     if (this.detailPlusButtons.size > 0) {
       const canSpend = (player.statPoints ?? 0) > 0;

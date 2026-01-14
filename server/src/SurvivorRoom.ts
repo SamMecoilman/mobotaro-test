@@ -13,6 +13,7 @@ type AttackMessage = {
 
 type AssignStatMessage = {
   stat: string;
+  amount?: number;
 };
 
 export class SurvivorRoom extends Room<SurvivorState> {
@@ -152,38 +153,46 @@ export class SurvivorRoom extends Room<SurvivorState> {
 
     this.onMessage("assignStat", (client: Client, message: AssignStatMessage) => {
       const player = this.state.players.get(client.sessionId);
-      if (!player || player.statPoints <= 0) {
+      if (!player) {
+        return;
+      }
+      const rawAmount = message.amount ?? 1;
+      if (!Number.isFinite(rawAmount)) {
+        return;
+      }
+      const amount = Math.max(1, Math.floor(rawAmount));
+      if (player.statPoints < amount) {
         return;
       }
       const key = message.stat;
       switch (key) {
         case "hp":
-          player.maxHp += 5;
-          player.hp = Math.min(player.hp + 5, player.maxHp);
+          player.maxHp += 5 * amount;
+          player.hp = Math.min(player.hp + 5 * amount, player.maxHp);
           break;
         case "sp":
-          player.maxSp += 5;
-          player.sp = Math.min(player.sp + 5, player.maxSp);
+          player.maxSp += 5 * amount;
+          player.sp = Math.min(player.sp + 5 * amount, player.maxSp);
           break;
-        case "attack":
-          player.attack += 1;
+        case "atk":
+          player.attack += amount;
           break;
-        case "defense":
-          player.defense += 1;
+        case "def":
+          player.defense += amount;
           break;
-        case "speed":
-          player.speed += 1;
+        case "moveSpeed":
+          player.speed += amount;
           break;
-        case "attackSpeed":
-          player.attackSpeed += 1;
+        case "atkSpeed":
+          player.attackSpeed += amount;
           break;
         case "luck":
-          player.luck += 1;
+          player.luck += amount;
           break;
         default:
           return;
       }
-      player.statPoints -= 1;
+      player.statPoints -= amount;
     });
   }
 
