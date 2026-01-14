@@ -45,6 +45,8 @@ const extractFrameNumber = (path: string) => {
 };
 
 const MOBTARO_FPS = 8;
+const PROFILE_FRAME_SIZE = 68;
+const PROFILE_Y_OFFSET = -6;
 const mobtaroFrameEntries = Object.entries(
   import.meta.glob("../../images/mobtaro_sprite/*.png", {
     eager: true,
@@ -63,6 +65,24 @@ const mobtaroFrameKeys = mobtaroSortedFrames.map(
   (_entry, index) => `mobtaro_${index}`
 );
 const mobtaroFrameUrls = mobtaroSortedFrames.map((entry) => entry[1]);
+const mobtaroProfileEntries = Object.entries(
+  import.meta.glob("../../images/mobtaro_profilesprite/*.png", {
+    eager: true,
+    import: "default"
+  })
+) as Array<[string, string]>;
+const mobtaroProfileSorted = [...mobtaroProfileEntries].sort((left, right) => {
+  const leftNumber = extractFrameNumber(left[0]);
+  const rightNumber = extractFrameNumber(right[0]);
+  if (leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+  return left[0].localeCompare(right[0]);
+});
+const mobtaroProfileKeys = mobtaroProfileSorted.map(
+  (_entry, index) => `mobtaro_profile_${index}`
+);
+const mobtaroProfileUrls = mobtaroProfileSorted.map((entry) => entry[1]);
 
 type TapStart = {
   x: number;
@@ -105,6 +125,8 @@ class MainScene extends Phaser.Scene {
   private detailStatPoints?: Phaser.GameObjects.Text;
   private detailLevelText?: Phaser.GameObjects.Text;
   private detailXpText?: Phaser.GameObjects.Text;
+  private detailProfileCenter?: { x: number; y: number };
+  private mobileGuideTexts: Phaser.GameObjects.Text[] = [];
   private mobileHpValueText?: Phaser.GameObjects.Text;
   private mobileHpFill?: Phaser.GameObjects.Rectangle;
   private mobileHpLabel?: Phaser.GameObjects.Text;
@@ -154,6 +176,9 @@ class MainScene extends Phaser.Scene {
     mobtaroFrameUrls.forEach((url, index) => {
       this.load.image(mobtaroFrameKeys[index], url);
     });
+    mobtaroProfileUrls.forEach((url, index) => {
+      this.load.image(mobtaroProfileKeys[index], url);
+    });
   }
 
   create() {
@@ -187,6 +212,14 @@ class MainScene extends Phaser.Scene {
       this.anims.create({
         key: "mobtaro_walk",
         frames: mobtaroFrameKeys.map((key) => ({ key })),
+        frameRate: MOBTARO_FPS,
+        repeat: -1
+      });
+    }
+    if (mobtaroProfileKeys.length > 0 && !this.anims.exists("mobtaro_profile")) {
+      this.anims.create({
+        key: "mobtaro_profile",
+        frames: mobtaroProfileKeys.map((key) => ({ key })),
         frameRate: MOBTARO_FPS,
         repeat: -1
       });
@@ -561,6 +594,27 @@ class MainScene extends Phaser.Scene {
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
+    const guideStyle = {
+      color: "#b1b1b1",
+      fontSize: "9px",
+      fontFamily: "Times New Roman"
+    };
+    const guideStartY = spY + 36;
+    this.mobileGuideTexts = [
+      this.add
+        .text(hpX, guideStartY, "MOVE: STICK", guideStyle)
+        .setDepth(uiDepth)
+        .setScrollFactor(0),
+      this.add
+        .text(hpX, guideStartY + 12, "ATK: TAP / HOLD", guideStyle)
+        .setDepth(uiDepth)
+        .setScrollFactor(0)
+    ];
+    this.mobileGoldText = this.add
+      .text(hpX, guideStartY + 26, "GOLD: 0", guideStyle)
+      .setDepth(uiDepth)
+      .setScrollFactor(0);
+
     const fabRadius = 22;
     const fabX = width - 28;
     const fabY = 28;
@@ -920,6 +974,10 @@ class MainScene extends Phaser.Scene {
     if (this.mobileSpValueText) {
       targets.push(this.mobileSpValueText);
     }
+    if (this.mobileGoldText) {
+      targets.push(this.mobileGoldText);
+    }
+    this.mobileGuideTexts.forEach((guide) => targets.push(guide));
     if (this.mobileMenu?.visible) {
       targets.push(this.mobileMenu);
     }
@@ -1160,49 +1218,59 @@ class MainScene extends Phaser.Scene {
       })
       .setScrollFactor(0);
 
+    const portraitX = panelX - panelWidth / 2 + 60;
+    const portraitY = panelY - panelHeight / 2 + 90;
+    const portraitFrame = this.add
+      .rectangle(portraitX, portraitY, PROFILE_FRAME_SIZE, PROFILE_FRAME_SIZE, 0xffffff, 1)
+      .setStrokeStyle(2, panelStroke)
+      .setScrollFactor(0);
+    const portraitMask = this.add.graphics();
+    portraitMask.fillStyle(0xffffff);
+    portraitMask.fillRect(
+      portraitX - PROFILE_FRAME_SIZE / 2,
+      portraitY - PROFILE_FRAME_SIZE / 2,
+      PROFILE_FRAME_SIZE,
+      PROFILE_FRAME_SIZE
+    );
+    const mask = portraitMask.createGeometryMask();
+    portraitMask.setScrollFactor(0);
+
+    const profileKey = mobtaroProfileKeys[0] ?? mobtaroFrameKeys[0];
+    const profileAnim =
+      mobtaroProfileKeys.length > 0 ? "mobtaro_profile" : "mobtaro_walk";
+    this.detailSprite = this.add
+      .sprite(portraitX, portraitY + PROFILE_Y_OFFSET, profileKey)
+      .play(profileAnim);
+    this.detailSprite.setScrollFactor(0);
+    this.detailSprite.setMask(mask);
+    this.detailProfileCenter = { x: portraitX, y: portraitY };
+    this.applyProfileScale(this.detailSprite);
+
     const infoX = panelX - panelWidth / 2 + 16;
-    const infoY = panelY - panelHeight / 2 + 40;
+    const infoStartY = portraitY + PROFILE_FRAME_SIZE / 2 + 10;
+    const infoLineHeight = 16;
     this.detailLevelText = this.add
-      .text(infoX, infoY, "LV: 1", {
+      .text(infoX, infoStartY, "LV: 1", {
         color: "#1a1b1f",
         fontSize: "12px",
         fontFamily: "Times New Roman"
       })
       .setScrollFactor(0);
     this.detailXpText = this.add
-      .text(infoX, infoY + 16, "XP: 0 / 100", {
+      .text(infoX, infoStartY + infoLineHeight, "XP: 0 / 100", {
         color: "#1a1b1f",
         fontSize: "11px",
         fontFamily: "Times New Roman"
       })
       .setScrollFactor(0);
     const statPointText = this.add
-      .text(infoX, infoY + 32, "SPT: 0", {
+      .text(infoX, infoStartY + infoLineHeight * 2, "SPT: 0", {
         color: "#1a1b1f",
         fontSize: "12px",
         fontFamily: "Times New Roman"
       })
       .setScrollFactor(0);
     this.detailStatPoints = statPointText;
-
-    const portraitX = panelX - panelWidth / 2 + 60;
-    const portraitY = panelY - panelHeight / 2 + 90;
-    const portraitFrame = this.add
-      .rectangle(portraitX, portraitY, 68, 68, 0xffffff, 1)
-      .setStrokeStyle(2, panelStroke)
-      .setScrollFactor(0);
-    const portraitMask = this.add.graphics();
-    portraitMask.fillStyle(0xffffff);
-    portraitMask.fillRect(portraitX - 34, portraitY - 34, 68, 68);
-    const mask = portraitMask.createGeometryMask();
-    portraitMask.setScrollFactor(0);
-
-    this.detailSprite = this.add
-      .sprite(portraitX, portraitY + 8, mobtaroFrameKeys[0])
-      .setDisplaySize(56, 56)
-      .play("mobtaro_walk");
-    this.detailSprite.setScrollFactor(0);
-    this.detailSprite.setMask(mask);
 
     const statsStartX = panelX - panelWidth / 2 + 140;
     const statsStartY = panelY - panelHeight / 2 + 110;
@@ -1312,6 +1380,7 @@ class MainScene extends Phaser.Scene {
     this.detailStatPoints = undefined;
     this.detailLevelText = undefined;
     this.detailXpText = undefined;
+    this.detailProfileCenter = undefined;
     this.detailFields.clear();
     this.detailPlusButtons.clear();
     this.detailPlusLabels.clear();
@@ -1350,6 +1419,10 @@ class MainScene extends Phaser.Scene {
     this.mobileSpFill = undefined;
     this.mobileSpValueText?.destroy();
     this.mobileSpValueText = undefined;
+    this.mobileGuideTexts.forEach((guide) => guide.destroy());
+    this.mobileGuideTexts = [];
+    this.mobileGoldText?.destroy();
+    this.mobileGoldText = undefined;
     this.mobileFabButton?.destroy();
     this.mobileFabButton = undefined;
     this.mobileFabLabel?.destroy();
@@ -1373,10 +1446,42 @@ class MainScene extends Phaser.Scene {
     }
     const next = force ?? !this.detailPanel.visible;
     this.detailPanel.setVisible(next);
+    if (next && this.detailSprite) {
+      const frameKeys =
+        mobtaroProfileKeys.length > 0 ? mobtaroProfileKeys : mobtaroFrameKeys;
+      const animKey =
+        mobtaroProfileKeys.length > 0 ? "mobtaro_profile" : "mobtaro_walk";
+      const startIndex = Phaser.Math.Between(0, frameKeys.length - 1);
+      this.detailSprite.play({ key: animKey, startFrame: startIndex });
+      this.applyProfileScale(this.detailSprite);
+    }
     if (next) {
       this.mobileMenu?.setVisible(false);
       this.mobilePanels.forEach((panel) => panel.setVisible(false));
     }
+  }
+
+  private applyProfileScale(sprite: Phaser.GameObjects.Sprite) {
+    if (!this.detailProfileCenter) {
+      return;
+    }
+    const texture = this.textures.get(sprite.texture.key);
+    const source = texture.getSourceImage() as { width?: number; height?: number } | undefined;
+    const texWidth = source?.width ?? sprite.width;
+    const texHeight = source?.height ?? sprite.height;
+    if (texWidth <= 0 || texHeight <= 0) {
+      return;
+    }
+    const scale = Math.max(
+      PROFILE_FRAME_SIZE / texWidth,
+      PROFILE_FRAME_SIZE / texHeight
+    );
+    sprite.setScale(scale);
+    const scaledHalfHeight = (texHeight * scale) / 2;
+    const frameHalf = PROFILE_FRAME_SIZE / 2;
+    const minY = this.detailProfileCenter.y - (scaledHalfHeight - frameHalf);
+    const maxY = this.detailProfileCenter.y + (scaledHalfHeight - frameHalf);
+    sprite.y = clamp(sprite.y, minY, maxY);
   }
 
   private sendAssignStat(stat: string) {

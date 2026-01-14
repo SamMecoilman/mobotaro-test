@@ -54,11 +54,15 @@ export class SurvivorRoom extends Room<SurvivorState> {
           const cooldownKey = `${client.sessionId}:${targetPlayer.id}`;
           const now = Date.now();
           const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
-          if (now - lastHit >= ENEMY_HIT_COOLDOWN_MS) {
+          const cooldownMs = getAttackCooldownMs(player.attackSpeed);
+          if (now - lastHit >= cooldownMs) {
             this.enemyHitCooldown.set(cooldownKey, now);
-            const isCritical = Math.random() < Math.min(0.5, player.luck * CRIT_CHANCE_PER_LUCK);
+            const critChance = getCritChance(player.luck);
+            const isCritical = Math.random() < critChance;
+            const baseDamage = getAttackDamage(player.attack);
             const damage = Math.round(
-              PLAYER_ATTACK_DAMAGE * (isCritical ? CRIT_DAMAGE_MULTIPLIER : 1)
+              applyDefense(baseDamage, targetPlayer.defense) *
+                (isCritical ? TUNING.critMultiplier : 1)
             );
             targetPlayer.hp = Math.max(0, targetPlayer.hp - damage);
             this.broadcast("damageFloat", {
@@ -115,13 +119,17 @@ export class SurvivorRoom extends Room<SurvivorState> {
       const cooldownKey = `${client.sessionId}:${target.id}`;
       const now = Date.now();
       const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
-      if (now - lastHit < ENEMY_HIT_COOLDOWN_MS) {
+      const cooldownMs = getAttackCooldownMs(player.attackSpeed);
+      if (now - lastHit < cooldownMs) {
         return;
       }
       this.enemyHitCooldown.set(cooldownKey, now);
-      const isCritical = Math.random() < Math.min(0.5, player.luck * CRIT_CHANCE_PER_LUCK);
+      const critChance = getCritChance(player.luck);
+      const isCritical = Math.random() < critChance;
+      const baseDamage = getAttackDamage(player.attack);
       const damage = Math.round(
-        PLAYER_ATTACK_DAMAGE * (isCritical ? CRIT_DAMAGE_MULTIPLIER : 1)
+        applyDefense(baseDamage, ENEMY_DEFENSE_BASE) *
+          (isCritical ? TUNING.critMultiplier : 1)
       );
       target.hp = Math.max(0, target.hp - damage);
       this.broadcast("damageFloat", {
@@ -246,7 +254,6 @@ export class SurvivorRoom extends Room<SurvivorState> {
 
   private tick(dt: number) {
     const deltaSeconds = dt / 1000;
-    const speed = 220;
     const now = Date.now();
 
     this.state.tick += 1;
@@ -264,13 +271,14 @@ export class SurvivorRoom extends Room<SurvivorState> {
         player.vy = 0;
         continue;
       }
+      const moveSpeed = TUNING.baseMoveSpeed * getMoveMultiplier(player.speed);
       player.x = clamp(
-        player.x + player.vx * speed * deltaSeconds,
+        player.x + player.vx * moveSpeed * deltaSeconds,
         0,
         MAP_WIDTH
       );
       player.y = clamp(
-        player.y + player.vy * speed * deltaSeconds,
+        player.y + player.vy * moveSpeed * deltaSeconds,
         0,
         MAP_HEIGHT
       );
@@ -291,12 +299,13 @@ export class SurvivorRoom extends Room<SurvivorState> {
           continue;
         }
         this.playerHitCooldown.set(cooldownKey, now);
-        player.hp = Math.max(0, player.hp - ENEMY_CONTACT_DAMAGE);
+        const incomingDamage = applyDefense(ENEMY_CONTACT_DAMAGE, player.defense);
+        player.hp = Math.max(0, player.hp - incomingDamage);
         this.applyKnockback(player, enemy.x, enemy.y);
         this.broadcast("damageFloat", {
           x: player.x,
           y: player.y,
-          amount: ENEMY_CONTACT_DAMAGE,
+          amount: incomingDamage,
           kind: "received",
           critical: false,
           targetId: player.id
@@ -388,12 +397,13 @@ export class SurvivorRoom extends Room<SurvivorState> {
   }
 
   private applyPlayerContactDamage(player: Player, source: Player, now: number) {
-    player.hp = Math.max(0, player.hp - PLAYER_CONTACT_DAMAGE);
+    const incomingDamage = applyDefense(PLAYER_CONTACT_DAMAGE, player.defense);
+    player.hp = Math.max(0, player.hp - incomingDamage);
     this.applyKnockback(player, source.x, source.y);
     this.broadcast("damageFloat", {
       x: player.x,
       y: player.y,
-      amount: PLAYER_CONTACT_DAMAGE,
+      amount: incomingDamage,
       kind: "received",
       critical: false,
       targetId: player.id
@@ -425,25 +435,70 @@ const randomRange = (min: number, max: number) =>
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
+const getMoveMultiplier = (speed: number) => {
+  const normalized = Math.max(0, speed - 1);
+  return clamp(
+    1 + normalized * TUNING.movePerPoint,
+    1,
+    TUNING.moveMaxMult
+  );
+};
+
+const getAttackCooldownMs = (attackSpeed: number) => {
+  const normalized = Math.max(0, attackSpeed - 1);
+  const raw = TUNING.baseAttackCooldownMs - normalized * TUNING.cooldownReductionPerPoint;
+  return clamp(Math.round(raw), TUNING.minAttackCooldownMs, TUNING.baseAttackCooldownMs);
+};
+
+const getAttackDamage = (attack: number) => {
+  const normalized = Math.max(0, attack - TUNING.baseAttackStat);
+  return TUNING.baseAttackDamage + normalized * TUNING.attackPerPoint;
+};
+
+const applyDefense = (damage: number, defense: number) => {
+  const reduced = damage - Math.max(0, defense) * TUNING.defenseReducePerPoint;
+  return Math.max(TUNING.minDamage, Math.round(reduced));
+};
+
+const getCritChance = (luck: number) => {
+  const chance = TUNING.baseCritChance + Math.max(0, luck) * TUNING.critPerLuck;
+  return clamp(chance, 0, TUNING.maxCritChance);
+};
+
 const MAP_WIDTH = 1536 * 4;
 const MAP_HEIGHT = 1024 * 4;
 const ATTACK_RADIUS = 120;
-const PLAYER_ATTACK_DAMAGE = 10;
 const ENEMY_CONTACT_DAMAGE = 8;
-const ENEMY_HIT_COOLDOWN_MS = 200;
 const PLAYER_HIT_COOLDOWN_MS = 600;
 const PLAYER_RESPAWN_MS = 1500;
 const CONTACT_RADIUS = 32;
 const ENEMY_XP_REWARD = 25;
 const BASE_XP_TO_LEVEL = 100;
 const XP_PER_LEVEL = 25;
-const CRIT_CHANCE_PER_LUCK = 0.02;
-const CRIT_DAMAGE_MULTIPLIER = 1.8;
 const PLAYER_KNOCKBACK_DISTANCE = 18;
 const FRIENDLY_FIRE = true;
 const PLAYER_CONTACT_RADIUS = 26;
 const PLAYER_CONTACT_DAMAGE = 2;
 const PLAYER_CONTACT_COOLDOWN_MS = 600;
+const ENEMY_DEFENSE_BASE = 0;
+
+const TUNING = {
+  baseMoveSpeed: 220,
+  movePerPoint: 0.08,
+  moveMaxMult: 2,
+  baseAttackStat: 5,
+  baseAttackDamage: 10,
+  attackPerPoint: 1,
+  defenseReducePerPoint: 0.6,
+  minDamage: 1,
+  baseAttackCooldownMs: 350,
+  cooldownReductionPerPoint: 18,
+  minAttackCooldownMs: 120,
+  baseCritChance: 0.04,
+  critPerLuck: 0.01,
+  maxCritChance: 0.35,
+  critMultiplier: 1.8
+} as const;
 
 const cryptoRandomId = () =>
   `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
