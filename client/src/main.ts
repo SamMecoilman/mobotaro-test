@@ -43,10 +43,19 @@ const extractFrameNumber = (path: string) => {
   }
   return Number.parseInt(matches[matches.length - 1], 10);
 };
+const extractBombFrameNumber = (path: string) => {
+  const match = path.match(/frame_(\d+)/);
+  if (!match) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Number.parseInt(match[1], 10);
+};
 
 const MOBTARO_FPS = 8;
 const PROFILE_FRAME_SIZE = 68;
 const PROFILE_Y_OFFSET = -6;
+const BOMB_FPS = 24;
+const MAX_ACTIVE_BOMBS = 8;
 const mobtaroFrameEntries = Object.entries(
   import.meta.glob("../../images/mobtaro_sprite/*.png", {
     eager: true,
@@ -83,6 +92,25 @@ const mobtaroProfileKeys = mobtaroProfileSorted.map(
   (_entry, index) => `mobtaro_profile_${index}`
 );
 const mobtaroProfileUrls = mobtaroProfileSorted.map((entry) => entry[1]);
+const bombFrameEntries = Object.entries(
+  import.meta.glob("../../images/bomb/frame_*.png", {
+    eager: true,
+    import: "default"
+  })
+) as Array<[string, string]>;
+const bombSortedFrames = [...bombFrameEntries].sort((left, right) => {
+  const leftNumber = extractBombFrameNumber(left[0]);
+  const rightNumber = extractBombFrameNumber(right[0]);
+  if (leftNumber !== rightNumber) {
+    return leftNumber - rightNumber;
+  }
+  return left[0].localeCompare(right[0]);
+});
+const bombFrameKeys = bombSortedFrames.map((entry) => {
+  const number = extractBombFrameNumber(entry[0]);
+  return `bomb_${number.toString().padStart(2, "0")}`;
+});
+const bombFrameUrls = bombSortedFrames.map((entry) => entry[1]);
 
 type TapStart = {
   x: number;
@@ -163,6 +191,8 @@ class MainScene extends Phaser.Scene {
   private mobileHoldTimers = new Map<number, Phaser.Time.TimerEvent>();
   private lastAimWorld?: { x: number; y: number };
   private lastMoveDirection?: { x: number; y: number };
+  private lastKnownDead = new Map<string, boolean>();
+  private activeBombs: Phaser.GameObjects.Sprite[] = [];
 
   constructor() {
     super("main");
@@ -178,6 +208,9 @@ class MainScene extends Phaser.Scene {
     });
     mobtaroProfileUrls.forEach((url, index) => {
       this.load.image(mobtaroProfileKeys[index], url);
+    });
+    bombFrameUrls.forEach((url, index) => {
+      this.load.image(bombFrameKeys[index], url);
     });
   }
 
@@ -222,6 +255,14 @@ class MainScene extends Phaser.Scene {
         frames: mobtaroProfileKeys.map((key) => ({ key })),
         frameRate: MOBTARO_FPS,
         repeat: -1
+      });
+    }
+    if (bombFrameKeys.length > 0 && !this.anims.exists("bomb_explosion")) {
+      this.anims.create({
+        key: "bomb_explosion",
+        frames: bombFrameKeys.map((key) => ({ key })),
+        frameRate: BOMB_FPS,
+        repeat: 0
       });
     }
 
@@ -413,46 +454,50 @@ class MainScene extends Phaser.Scene {
 
     this.statusText?.setText("connected");
 
-    this.room.state.players.onAdd((player, id) => {
-      const isSelf = id === this.playerId;
-      if (isSelf) {
+      this.room.state.players.onAdd((player, id) => {
+        const isSelf = id === this.playerId;
+        if (isSelf) {
         const sprite = this.add
           .sprite(player.x, player.y, mobtaroFrameKeys[0])
           .setDisplaySize(40, 40)
           .play("mobtaro_walk");
-        this.selfSprite = sprite;
-        this.cameras.main.startFollow(sprite);
-        this.updateSelfHud(player);
-      } else {
-        const sprite = this.add
+          this.selfSprite = sprite;
+          this.cameras.main.startFollow(sprite);
+          this.updateSelfHud(player);
+        } else {
+          const sprite = this.add
           .sprite(player.x, player.y, mobtaroFrameKeys[0])
           .setDisplaySize(40, 40)
           .setAlpha(0.55)
           .play("mobtaro_walk");
-        this.playerSprites.set(id, sprite);
-      }
-      player.onChange(() => {
-        if (id === this.playerId) {
-          this.selfSprite?.setPosition(player.x, player.y);
-          this.updateSelfHud(player);
-          return;
+          this.playerSprites.set(id, sprite);
         }
-        const otherSprite = this.playerSprites.get(id);
-        if (otherSprite) {
-          otherSprite.setPosition(player.x, player.y);
-        }
+        this.lastKnownDead.set(id, Boolean(player.isDead));
+        player.onChange(() => {
+          if (id === this.playerId) {
+            this.selfSprite?.setPosition(player.x, player.y);
+            this.updateSelfHud(player);
+            this.handleDeathFx(id, player.x, player.y, Boolean(player.isDead));
+            return;
+          }
+          const otherSprite = this.playerSprites.get(id);
+          if (otherSprite) {
+            otherSprite.setPosition(player.x, player.y);
+          }
+          this.handleDeathFx(id, player.x, player.y, Boolean(player.isDead));
+        });
       });
-    });
 
-    this.room.state.players.onRemove((_player, id) => {
-      const sprite = this.playerSprites.get(id);
-      if (sprite) {
-        sprite.destroy();
-        this.playerSprites.delete(id);
-      }
-      if (id === this.playerId) {
-        this.cameras.main.stopFollow();
-        this.selfSprite?.destroy();
+      this.room.state.players.onRemove((_player, id) => {
+        const sprite = this.playerSprites.get(id);
+        if (sprite) {
+          sprite.destroy();
+          this.playerSprites.delete(id);
+        }
+        this.lastKnownDead.delete(id);
+        if (id === this.playerId) {
+          this.cameras.main.stopFollow();
+          this.selfSprite?.destroy();
         this.selfSprite = undefined;
       }
     });
@@ -1482,6 +1527,44 @@ class MainScene extends Phaser.Scene {
     const minY = this.detailProfileCenter.y - (scaledHalfHeight - frameHalf);
     const maxY = this.detailProfileCenter.y + (scaledHalfHeight - frameHalf);
     sprite.y = clamp(sprite.y, minY, maxY);
+  }
+
+  private handleDeathFx(playerId: string, x: number, y: number, isDead: boolean) {
+    const wasDead = this.lastKnownDead.get(playerId) ?? false;
+    if (!wasDead && isDead) {
+      const sprite = playerId === this.playerId ? this.selfSprite : this.playerSprites.get(playerId);
+      const spawnX = sprite?.x ?? x;
+      const spawnY = sprite?.y ?? y;
+      this.spawnDeathExplosion(spawnX, spawnY);
+      sprite?.setVisible(false);
+    }
+    if (wasDead && !isDead) {
+      const sprite = playerId === this.playerId ? this.selfSprite : this.playerSprites.get(playerId);
+      sprite?.setVisible(true);
+    }
+    this.lastKnownDead.set(playerId, isDead);
+  }
+
+  private spawnDeathExplosion(x: number, y: number) {
+    if (bombFrameKeys.length === 0) {
+      return;
+    }
+    while (this.activeBombs.length >= MAX_ACTIVE_BOMBS) {
+      const oldest = this.activeBombs.shift();
+      oldest?.destroy();
+    }
+    const sprite = this.add
+      .sprite(x, y, bombFrameKeys[0])
+      .setDepth(12);
+    this.activeBombs.push(sprite);
+    sprite.play("bomb_explosion");
+    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      const index = this.activeBombs.indexOf(sprite);
+      if (index >= 0) {
+        this.activeBombs.splice(index, 1);
+      }
+      sprite.destroy();
+    });
   }
 
   private sendAssignStat(stat: string) {

@@ -7,6 +7,8 @@
   - 最小戦闘ループ（PvE / PvP）（完了）
   - Phase 3：ステータス体感反映（完了）
   - UIギャップ解消＋キャラ画面プロフィール枠アニメ（完了）
+  - 演出：死亡爆発（PNG連番）（完了）
+  - 敵AI：追尾＋接触ダメージ（完了）
 
 - 到達点：
   - TypeScript + Phaser（client）起動（Vite）
@@ -100,6 +102,20 @@
       - 白い余白が出ないように上下を覆う範囲でY位置をクランプ
     - Lv / XP / SPT 表示は証明写真枠の下に配置して重なりを回避
 
+  - 演出：死亡爆発（クライアント表示）
+    - PNG連番（images/bomb/frame_00_delay-0.1s.png〜frame_34_delay-0.1s.png）を読み込み
+    - 死亡判定（isDead の false→true 遷移）をトリガに、その場で爆発アニメを1回再生
+    - 自分/他プレイヤー共通で再生（同一死亡での二重再生は防止）
+    - 同時再生数に上限を設け、超過時は古い爆発を破棄
+    - 再生終了後は必ず destroy（リーク防止）
+    - 爆発中は対象キャラを一時非表示/フェードで最小対応
+
+  - 敵AI：追尾＋接触ダメージ（サーバ権威）
+    - サーバtickで各敵が「最寄りの生存プレイヤー」を探索して追尾移動（ENEMY_MOVE_SPEED、マップクランプ適用）
+    - 敵×プレイヤー接触でダメージ（ENEMY_CONTACT_RADIUS、ENEMY_CONTACT_COOLDOWN_MS）
+    - 死亡中プレイヤーはターゲット対象外
+    - 既存の敵スポーン/HP/撃破/描画は維持
+
 - ローカル起動：
   - npm install
   - npm run dev
@@ -118,6 +134,8 @@
     - MOVE/ATK/DEF/LUCK も同様に「体感が出るが壊れない」範囲へ
   - UI表示の文言・レイアウト微調整（特にモバイル上部の詰まり）
   - プロフィール枠の「顔位置」微調整（必要ならYオフセット定数で）
+  - 敵AIの体感調整（定数のみ）
+    - ENEMY_MOVE_SPEED / ENEMY_CONTACT_COOLDOWN_MS / ENEMY_CONTACT_RADIUS の調整
 
 - 次の目標（中期）：
   - state 同期を描画に完全統一（player / enemy を state 駆動）
