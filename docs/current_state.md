@@ -116,6 +116,19 @@
     - 死亡中プレイヤーはターゲット対象外
     - 既存の敵スポーン/HP/撃破/描画は維持
 
+  - オプション画面（ESCトグル）＋BGM再生（完了）
+  - オプション画面（UI）
+    - ESCキーで表示／非表示をトグル
+    - キャラクター画面と同一の管理方式
+    - UI操作は攻撃除外対象
+
+  - BGM
+    - schoolエリアBGMをループ再生
+      - audio/school/Pixel Playground Afternoon.wav
+    - 初期音量：50%
+    - オプション画面から音量調整可能
+
+
 - ローカル起動：
   - npm install
   - npm run dev
