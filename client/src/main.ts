@@ -56,6 +56,10 @@ const PROFILE_FRAME_SIZE = 68;
 const PROFILE_Y_OFFSET = -6;
 const BOMB_FPS = 24;
 const MAX_ACTIVE_BOMBS = 8;
+const BOMB_Y_OFFSET = -50;
+const BGM_VOLUME_DEFAULT = 0.5;
+const PC_HINT_ICON_SCALE = 1.1;
+const PC_ACTION_ROW_HEIGHT_MULT = 1.25;
 const mobtaroFrameEntries = Object.entries(
   import.meta.glob("../../images/mobtaro_sprite/*.png", {
     eager: true,
@@ -142,18 +146,34 @@ class MainScene extends Phaser.Scene {
   private pcSpFillEl?: HTMLElement | null;
   private pcXpFillEl?: HTMLElement | null;
   private pcXpLabelEl?: HTMLElement | null;
-  private pcDetailButton?: HTMLButtonElement | null;
+  private pcDetailButton?: HTMLElement | null;
   private pcLevelEl?: HTMLElement | null;
+  private pcCharacterHint?: Phaser.GameObjects.Image;
+  private pcCharacterHintEl?: HTMLImageElement;
+  private pcCharacterLabelEl?: HTMLSpanElement;
+  private pcOptionLabelEl?: HTMLSpanElement;
+  private pcOptionHintEl?: HTMLImageElement;
+  private pcOptionButtonEl?: HTMLElement;
+  private pcActionUiGame?: Phaser.Game;
   private mobileDetailButton?: Phaser.GameObjects.Rectangle;
   private detailPanel?: Phaser.GameObjects.Container;
   private detailSprite?: Phaser.GameObjects.Sprite;
   private detailFields = new Map<string, Phaser.GameObjects.Text>();
   private detailPlusButtons = new Map<string, Phaser.GameObjects.Rectangle>();
   private detailPlusLabels = new Map<string, Phaser.GameObjects.Text>();
+  private detailPlusButtonsFive = new Map<string, Phaser.GameObjects.Rectangle>();
+  private detailPlusLabelsFive = new Map<string, Phaser.GameObjects.Text>();
   private detailStatPoints?: Phaser.GameObjects.Text;
   private detailLevelText?: Phaser.GameObjects.Text;
   private detailXpText?: Phaser.GameObjects.Text;
   private detailProfileCenter?: { x: number; y: number };
+  private optionPanel?: Phaser.GameObjects.Container;
+  private optionVolumeText?: Phaser.GameObjects.Text;
+  private optionButtons: Phaser.GameObjects.Rectangle[] = [];
+  private optionButtonLabels: Phaser.GameObjects.Text[] = [];
+  private bgmSound?: Phaser.Sound.BaseSound;
+  private bgmArmed = false;
+  private bgmVolume = BGM_VOLUME_DEFAULT;
   private mobileGuideTexts: Phaser.GameObjects.Text[] = [];
   private mobileHpValueText?: Phaser.GameObjects.Text;
   private mobileHpFill?: Phaser.GameObjects.Rectangle;
@@ -202,6 +222,18 @@ class MainScene extends Phaser.Scene {
     this.load.image(
       "background",
       new URL("../../map/school2.png", import.meta.url).href
+    );
+    this.load.image(
+      "kibodo_c",
+      new URL("../../images/kibodo/kibodo_c.png", import.meta.url).href
+    );
+    this.load.image(
+      "kibodo_esc",
+      new URL("../../images/kibodo/kibodo_esc.png", import.meta.url).href
+    );
+    this.load.audio(
+      "bgm_school",
+      new URL("../../audio/school/Pixel Playground Afternoon.wav", import.meta.url).href
     );
     mobtaroFrameUrls.forEach((url, index) => {
       this.load.image(mobtaroFrameKeys[index], url);
@@ -280,23 +312,46 @@ class MainScene extends Phaser.Scene {
       this.pcDetailButton = document.getElementById(
         "pc-detail-button"
       ) as HTMLButtonElement | null;
-      this.pcDetailButton?.addEventListener("click", () => {
+      this.pcCharacterHint = this.add
+        .image(0, 0, "kibodo_c")
+        .setOrigin(0, 0.5)
+        .setScrollFactor(0)
+        .setDepth(40)
+        .setVisible(false);
+      this.ensurePcOptionHint();
+      this.scale.on("resize", () => {
+        this.updatePcCharacterHintPosition();
+      });
+      this.input.keyboard?.on("keydown-C", () => {
+        const active = document.activeElement;
+        if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+          return;
+        }
         this.toggleDetailPanel();
+      });
+      this.input.keyboard?.on("keydown-ESC", () => {
+        const active = document.activeElement;
+        if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
+          return;
+        }
+        this.toggleOptionPanel();
       });
     }
     this.input.addPointer(2);
 
-      if (isMobile) {
-        this.createVirtualStick();
-        this.createMobileUi();
-        this.setupPointerAttack();
-        this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
-          this.scheduleMobileUiResize(gameSize.width, gameSize.height);
-        });
-      } else {
-        this.setupPointerAttack();
-        this.createDetailPanel();
-      }
+    if (isMobile) {
+      this.createVirtualStick();
+      this.createMobileUi();
+      this.setupPointerAttack();
+      this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
+        this.scheduleMobileUiResize(gameSize.width, gameSize.height);
+      });
+    } else {
+      this.setupPointerAttack();
+      this.createDetailPanel();
+    }
+    this.createOptionPanel();
+    this.setupBgmPlayback();
 
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (this.isPointerWithinCanvas(pointer)) {
@@ -505,7 +560,8 @@ class MainScene extends Phaser.Scene {
     this.room.state.enemies.onAdd((enemy, id) => {
       const sprite = this.add
         .rectangle(enemy.x, enemy.y, 14, 14, 0xff7b7b)
-        .setStrokeStyle(1, 0x4b1b1b);
+        .setStrokeStyle(1, 0x4b1b1b)
+        .setDepth(6);
       this.enemySprites.set(id, sprite);
       const hpText = this.add
         .text(enemy.x, enemy.y - 14, this.formatHp(enemy.hp, enemy.maxHp), {
@@ -516,6 +572,17 @@ class MainScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setDepth(9);
       this.enemyHpTexts.set(id, hpText);
+      enemy.onChange(() => {
+        const enemySprite = this.enemySprites.get(id);
+        if (enemySprite) {
+          enemySprite.setPosition(enemy.x, enemy.y);
+        }
+        const enemyText = this.enemyHpTexts.get(id);
+        if (enemyText) {
+          enemyText.setText(this.formatHp(enemy.hp, enemy.maxHp));
+          enemyText.setPosition(enemy.x, enemy.y - 14);
+        }
+      });
     });
 
     this.room.state.enemies.onChange((enemy, id) => {
@@ -1033,6 +1100,9 @@ class MainScene extends Phaser.Scene {
     });
     this.mobileItemSlots.forEach((slot) => targets.push(slot));
     this.mobileSkillSlots.forEach((slot) => targets.push(slot));
+    if (this.optionPanel?.visible) {
+      targets.push(this.optionPanel);
+    }
 
     return targets.some((target) =>
       Phaser.Geom.Rectangle.Contains(target.getBounds(), pointer.x, pointer.y)
@@ -1345,24 +1415,40 @@ class MainScene extends Phaser.Scene {
           fontFamily: "Times New Roman"
         })
         .setScrollFactor(0);
-      const plusBox = this.add
-        .rectangle(statsStartX + 110, y + 6, 18, 18, 0xffffff, 1)
-        .setStrokeStyle(1, panelStroke)
-        .setScrollFactor(0)
-        .setInteractive({ useHandCursor: true });
-      const plusLabel = this.add
-        .text(statsStartX + 110, y + 6, "+", {
-          color: "#1a1b1f",
-          fontSize: "12px",
-          fontFamily: "Times New Roman"
-        })
-        .setOrigin(0.5)
-        .setScrollFactor(0);
-      plusBox.on("pointerdown", () => this.sendAssignStat(key));
-      this.detailFields.set(key, valueText);
-      this.detailPlusButtons.set(key, plusBox);
-      this.detailFields.set(`${key}-label`, nameText);
-      this.detailPlusLabels.set(key, plusLabel);
+        const plusBox = this.add
+          .rectangle(statsStartX + 110, y + 6, 18, 18, 0xffffff, 1)
+          .setStrokeStyle(1, panelStroke)
+          .setScrollFactor(0)
+          .setInteractive({ useHandCursor: true });
+        const plusLabel = this.add
+          .text(statsStartX + 110, y + 6, "+1", {
+            color: "#1a1b1f",
+            fontSize: "10px",
+            fontFamily: "Times New Roman"
+          })
+          .setOrigin(0.5)
+          .setScrollFactor(0);
+        const plusFiveBox = this.add
+          .rectangle(statsStartX + 134, y + 6, 22, 18, 0xffffff, 1)
+          .setStrokeStyle(1, panelStroke)
+          .setScrollFactor(0)
+          .setInteractive({ useHandCursor: true });
+        const plusFiveLabel = this.add
+          .text(statsStartX + 134, y + 6, "+5", {
+            color: "#1a1b1f",
+            fontSize: "10px",
+            fontFamily: "Times New Roman"
+          })
+          .setOrigin(0.5)
+          .setScrollFactor(0);
+        plusBox.on("pointerdown", () => this.sendAssignStat(key, 1));
+        plusFiveBox.on("pointerdown", () => this.sendAssignStat(key, 5));
+        this.detailFields.set(key, valueText);
+        this.detailPlusButtons.set(key, plusBox);
+        this.detailPlusButtonsFive.set(key, plusFiveBox);
+        this.detailFields.set(`${key}-label`, nameText);
+        this.detailPlusLabels.set(key, plusLabel);
+        this.detailPlusLabelsFive.set(key, plusFiveLabel);
     });
 
     const closeBox = this.add
@@ -1398,7 +1484,13 @@ class MainScene extends Phaser.Scene {
     this.detailPlusButtons.forEach((value) => {
       this.detailPanel?.add(value);
     });
+    this.detailPlusButtonsFive.forEach((value) => {
+      this.detailPanel?.add(value);
+    });
     this.detailPlusLabels.forEach((value) => {
+      this.detailPanel?.add(value);
+    });
+    this.detailPlusLabelsFive.forEach((value) => {
       this.detailPanel?.add(value);
     });
     this.detailPanel.setScrollFactor(0);
@@ -1429,6 +1521,8 @@ class MainScene extends Phaser.Scene {
     this.detailFields.clear();
     this.detailPlusButtons.clear();
     this.detailPlusLabels.clear();
+    this.detailPlusButtonsFive.clear();
+    this.detailPlusLabelsFive.clear();
   }
 
   private rebuildMobileUiForResize() {
@@ -1529,6 +1623,142 @@ class MainScene extends Phaser.Scene {
     sprite.y = clamp(sprite.y, minY, maxY);
   }
 
+  private createOptionPanel() {
+    const { width, height } = this.scale;
+    const uiDepth = 50;
+    const panelWidth = 220;
+    const panelHeight = 120;
+    const panelX = width / 2;
+    const panelY = height / 2;
+    const panelStroke = 0x000000;
+    const bg = this.add
+      .rectangle(panelX, panelY, panelWidth, panelHeight, 0xf2f2f2, 0.95)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0);
+    const title = this.add
+      .text(panelX - panelWidth / 2 + 12, panelY - panelHeight / 2 + 10, "OPTION", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    this.optionVolumeText = this.add
+      .text(panelX - panelWidth / 2 + 12, panelY - 4, "BGM: 50%", {
+        color: "#1a1b1f",
+        fontSize: "11px",
+        fontFamily: "Times New Roman"
+      })
+      .setScrollFactor(0);
+    const minus = this.add
+      .rectangle(panelX + 40, panelY - 6, 24, 20, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const minusLabel = this.add
+      .text(panelX + 40, panelY - 6, "-", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    const plus = this.add
+      .rectangle(panelX + 70, panelY - 6, 24, 20, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const plusLabel = this.add
+      .text(panelX + 70, panelY - 6, "+", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    minus.on("pointerdown", () => this.setBgmVolume(this.bgmVolume - 0.1));
+    plus.on("pointerdown", () => this.setBgmVolume(this.bgmVolume + 0.1));
+    this.optionButtons = [minus, plus];
+    this.optionButtonLabels = [minusLabel, plusLabel];
+
+    const closeBox = this.add
+      .rectangle(panelX + panelWidth / 2 - 16, panelY - panelHeight / 2 + 14, 18, 18, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const closeLabel = this.add
+      .text(panelX + panelWidth / 2 - 16, panelY - panelHeight / 2 + 14, "X", {
+        color: "#1a1b1f",
+        fontSize: "11px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    closeBox.on("pointerdown", () => this.toggleOptionPanel(false));
+
+    this.optionPanel = this.add.container(0, 0, [
+      bg,
+      title,
+      this.optionVolumeText,
+      minus,
+      minusLabel,
+      plus,
+      plusLabel,
+      closeBox,
+      closeLabel
+    ]);
+    this.optionPanel.setScrollFactor(0);
+    this.optionPanel.setDepth(uiDepth);
+    this.optionPanel.setVisible(false);
+  }
+
+  private toggleOptionPanel(force?: boolean) {
+    if (!this.optionPanel) {
+      return;
+    }
+    const next = force ?? !this.optionPanel.visible;
+    this.optionPanel.setVisible(next);
+  }
+
+  private setupBgmPlayback() {
+    if (this.bgmSound) {
+      return;
+    }
+    this.bgmSound = this.sound.add("bgm_school", {
+      loop: true,
+      volume: this.bgmVolume
+    });
+    this.tryPlayBgm();
+    const resumeOnce = () => {
+      if (this.bgmArmed) {
+        return;
+      }
+      this.bgmArmed = true;
+      this.tryPlayBgm();
+    };
+    this.input.once("pointerdown", resumeOnce);
+    this.input.keyboard?.once("keydown", resumeOnce);
+  }
+
+  private tryPlayBgm() {
+    if (!this.bgmSound) {
+      return;
+    }
+    if (!this.bgmSound.isPlaying) {
+      this.bgmSound.setVolume(this.bgmVolume);
+      this.bgmSound.play();
+    }
+  }
+
+  private setBgmVolume(value: number) {
+    this.bgmVolume = clamp(value, 0, 1);
+    if (this.bgmSound) {
+      this.bgmSound.setVolume(this.bgmVolume);
+    }
+    if (this.optionVolumeText) {
+      this.optionVolumeText.setText(`BGM: ${Math.round(this.bgmVolume * 100)}%`);
+    }
+  }
+
   private handleDeathFx(playerId: string, x: number, y: number, isDead: boolean) {
     const wasDead = this.lastKnownDead.get(playerId) ?? false;
     if (!wasDead && isDead) {
@@ -1554,7 +1784,7 @@ class MainScene extends Phaser.Scene {
       oldest?.destroy();
     }
     const sprite = this.add
-      .sprite(x, y, bombFrameKeys[0])
+      .sprite(x, y + BOMB_Y_OFFSET, bombFrameKeys[0])
       .setDepth(12);
     this.activeBombs.push(sprite);
     sprite.play("bomb_explosion");
@@ -1567,11 +1797,123 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private sendAssignStat(stat: string) {
+  private updatePcCharacterHintPosition() {
+    if (!this.pcDetailButton || !this.pcCharacterHintEl) {
+      return;
+    }
+    const targetHeight = Math.max(10, this.pcDetailButton.offsetHeight * PC_HINT_ICON_SCALE * 1.5);
+    this.pcCharacterHintEl.style.height = `${targetHeight}px`;
+    if (this.pcOptionHintEl) {
+      this.pcOptionHintEl.style.height = `${targetHeight}px`;
+    }
+    const baseRowHeight =
+      Number(this.pcDetailButton.dataset.baseRowHeight ?? 0) || this.pcDetailButton.offsetHeight;
+    const targetRowHeight = Math.round(baseRowHeight * PC_ACTION_ROW_HEIGHT_MULT);
+    this.pcDetailButton.style.height = `${targetRowHeight}px`;
+    if (this.pcOptionButtonEl) {
+      this.pcOptionButtonEl.style.height = `${targetRowHeight}px`;
+    }
+    if (this.pcCharacterLabelEl) {
+      this.pcCharacterLabelEl.style.lineHeight = `${targetRowHeight}px`;
+    }
+    if (this.pcOptionLabelEl) {
+      this.pcOptionLabelEl.style.lineHeight = `${targetRowHeight}px`;
+    }
+  }
+
+  private ensurePcOptionHint() {
+    if (!this.pcDetailButton) {
+      return;
+    }
+    const section = this.pcDetailButton.parentElement;
+    if (!section || this.pcActionUiGame) {
+      return;
+    }
+    const baseRowHeight = this.pcDetailButton.getBoundingClientRect().height || 22;
+    const rowHeight = Math.round(baseRowHeight * PC_ACTION_ROW_HEIGHT_MULT);
+    const panelHeight = rowHeight * 2 + 1;
+    const rightPadding = 12;
+    const iconHeight = Math.max(10, baseRowHeight * PC_HINT_ICON_SCALE * 1.5);
+    const labelColumnWidth = 120;
+    const panelWidth = Math.max(
+      1,
+      Math.round(labelColumnWidth + iconHeight / 2 + rightPadding)
+    );
+
+    section.textContent = "";
+    const host = document.createElement("div");
+    host.style.width = `${panelWidth}px`;
+    host.style.height = `${panelHeight}px`;
+    host.style.display = "block";
+    section.appendChild(host);
+
+    const onCharacter = () => this.toggleDetailPanel();
+    const onOption = () => this.toggleOptionPanel();
+    const labelStyle = {
+      fontFamily: "sans-serif",
+      fontSize: "11px",
+      color: "#1a1b1f"
+    };
+    const labelX = 10;
+    const iconX = labelColumnWidth;
+    const row1CenterY = rowHeight / 2;
+    const row2CenterY = rowHeight + rowHeight / 2;
+
+    const sceneConfig: Phaser.Types.Scenes.SettingsConfig = {
+      key: "PcActionRows"
+    };
+
+    const scene = new Phaser.Scene(sceneConfig);
+    scene.preload = () => {
+      scene.load.image(
+        "pc_kibodo_c",
+        new URL("../../images/kibodo/kibodo_c.png", import.meta.url).href
+      );
+      scene.load.image(
+        "pc_kibodo_esc",
+        new URL("../../images/kibodo/kibodo_esc.png", import.meta.url).href
+      );
+    };
+    scene.create = () => {
+      const graphics = scene.add.graphics();
+      graphics.lineStyle(1, 0x000000, 1);
+      graphics.strokeRect(0.5, 0.5, panelWidth - 1, panelHeight - 1);
+      graphics.lineBetween(0, rowHeight, panelWidth, rowHeight);
+
+      scene.add.text(labelX, row1CenterY, "CHARACTER", labelStyle).setOrigin(0, 0.5);
+      scene.add.text(labelX, row2CenterY, "OPTION", labelStyle).setOrigin(0, 0.5);
+
+      const cIcon = scene.add.image(iconX, row1CenterY, "pc_kibodo_c").setOrigin(0.5, 0.5);
+      const escIcon = scene.add.image(iconX, row2CenterY, "pc_kibodo_esc").setOrigin(0.5, 0.5);
+      cIcon.setScale(iconHeight / cIcon.height);
+      escIcon.setScale(iconHeight / escIcon.height);
+
+      const rowWidth = panelWidth;
+      const row1Hit = scene.add
+        .rectangle(panelWidth / 2, row1CenterY, rowWidth, rowHeight, 0xffffff, 0)
+        .setInteractive({ useHandCursor: true });
+      const row2Hit = scene.add
+        .rectangle(panelWidth / 2, row2CenterY, rowWidth, rowHeight, 0xffffff, 0)
+        .setInteractive({ useHandCursor: true });
+      row1Hit.on("pointerdown", onCharacter);
+      row2Hit.on("pointerdown", onOption);
+    };
+
+    this.pcActionUiGame = new Phaser.Game({
+      type: Phaser.CANVAS,
+      width: panelWidth,
+      height: panelHeight,
+      parent: host,
+      transparent: true,
+      scene
+    });
+  }
+
+  private sendAssignStat(stat: string, amount = 1) {
     if (!this.room || !this.room.connection.isOpen) {
       return;
     }
-    this.room.send("assignStat", { stat, amount: 1 });
+    this.room.send("assignStat", { stat, amount });
   }
 
   private updateSelfHud(player: PlayerState) {
@@ -1661,13 +2003,28 @@ class MainScene extends Phaser.Scene {
       this.detailXpText.setText(`XP: ${xp} / ${maxXp}`);
     }
     if (this.detailPlusButtons.size > 0) {
-      const canSpend = (player.statPoints ?? 0) > 0;
+      const points = player.statPoints ?? 0;
+      const canSpendOne = points >= 1;
+      const canSpendFive = points >= 5;
       this.detailPlusButtons.forEach((button) => {
-        button.setAlpha(canSpend ? 1 : 0.4);
+        button.setAlpha(canSpendOne ? 1 : 0.4);
         button.disableInteractive();
-        if (canSpend) {
+        if (canSpendOne) {
           button.setInteractive({ useHandCursor: true });
         }
+      });
+      this.detailPlusButtonsFive.forEach((button) => {
+        button.setAlpha(canSpendFive ? 1 : 0.4);
+        button.disableInteractive();
+        if (canSpendFive) {
+          button.setInteractive({ useHandCursor: true });
+        }
+      });
+      this.detailPlusLabels.forEach((label) => {
+        label.setAlpha(canSpendOne ? 1 : 0.4);
+      });
+      this.detailPlusLabelsFive.forEach((label) => {
+        label.setAlpha(canSpendFive ? 1 : 0.4);
       });
     }
   }
