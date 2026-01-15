@@ -44,118 +44,136 @@ export class SurvivorRoom extends Room<SurvivorState> {
       if (!player || player.isDead) {
         return;
       }
+      const originX = player.x;
+      const originY = player.y;
+      const dx = message.x - originX;
+      const dy = message.y - originY;
+      const distance = Math.hypot(dx, dy);
+      if (distance <= 0) {
+        return;
+      }
+      const clampedDistance = Math.min(distance, ATTACK_RANGE);
+      const nx = dx / distance;
+      const ny = dy / distance;
+      const targetX = originX + nx * clampedDistance;
+      const targetY = originY + ny * clampedDistance;
+      let didHit = false;
       if (FRIENDLY_FIRE) {
-        const targetPlayer = this.findClosestPlayer(
+        const targetPlayers = this.findPlayersOnSegment(
           player.id,
-          message.x,
-          message.y,
-          ATTACK_RADIUS
+          originX,
+          originY,
+          targetX,
+          targetY,
+          ATTACK_HIT_RADIUS
         );
-        if (targetPlayer) {
+        for (const targetPlayer of targetPlayers) {
           const cooldownKey = `${client.sessionId}:${targetPlayer.id}`;
           const now = Date.now();
           const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
           const cooldownMs = getAttackCooldownMs(player.attackSpeed);
-          if (now - lastHit >= cooldownMs) {
-            this.enemyHitCooldown.set(cooldownKey, now);
-            const critChance = getCritChance(player.luck);
-            const isCritical = Math.random() < critChance;
-            const baseDamage = getAttackDamage(player.attack);
-            const damage = Math.round(
-              applyDefense(baseDamage, targetPlayer.defense) *
-                (isCritical ? TUNING.critMultiplier : 1)
-            );
-            targetPlayer.hp = Math.max(0, targetPlayer.hp - damage);
-            this.broadcast("damageFloat", {
-              x: targetPlayer.x,
-              y: targetPlayer.y,
-              amount: damage,
-              kind: "dealt",
-              critical: isCritical,
-              targetId: targetPlayer.id
-            });
-            this.broadcast("attackEffect", {
-              fromX: player.x,
-              fromY: player.y,
-              toX: message.x,
-              toY: message.y,
-              attackerId: player.id
-            });
-            if (targetPlayer.hp <= 0) {
-              targetPlayer.isDead = true;
-              targetPlayer.vx = 0;
-              targetPlayer.vy = 0;
-              const gainedXp = Math.floor(targetPlayer.xp * 0.5);
-              if (gainedXp > 0) {
-                player.xp += gainedXp;
-                this.applyLevelUps(player);
-                this.broadcast("xpFloat", {
-                  x: targetPlayer.x,
-                  y: targetPlayer.y,
-                  amount: gainedXp
-                });
-              }
-              targetPlayer.xp = 0;
-              targetPlayer.level = 1;
-              targetPlayer.statPoints = 0;
-              targetPlayer.attack = 5;
-              targetPlayer.defense = 2;
-              targetPlayer.speed = 1;
-              targetPlayer.attackSpeed = 1;
-              targetPlayer.luck = 1;
-              targetPlayer.maxHp = 100;
-              targetPlayer.hp = 0;
-              targetPlayer.maxSp = 50;
-              targetPlayer.sp = 0;
-              this.playerDeadUntil.set(targetPlayer.id, now + PLAYER_RESPAWN_MS);
+          if (now - lastHit < cooldownMs) {
+            continue;
+          }
+          this.enemyHitCooldown.set(cooldownKey, now);
+          const critChance = getCritChance(player.luck);
+          const isCritical = Math.random() < critChance;
+          const baseDamage = getAttackDamage(player.attack);
+          const damage = Math.round(
+            applyDefense(baseDamage, targetPlayer.defense) *
+              (isCritical ? TUNING.critMultiplier : 1)
+          );
+          targetPlayer.hp = Math.max(0, targetPlayer.hp - damage);
+          this.broadcast("damageFloat", {
+            x: targetPlayer.x,
+            y: targetPlayer.y,
+            amount: damage,
+            kind: "dealt",
+            critical: isCritical,
+            targetId: targetPlayer.id
+          });
+          didHit = true;
+          if (targetPlayer.hp <= 0) {
+            targetPlayer.isDead = true;
+            targetPlayer.vx = 0;
+            targetPlayer.vy = 0;
+            const gainedXp = Math.floor(targetPlayer.xp * 0.5);
+            if (gainedXp > 0) {
+              player.xp += gainedXp;
+              this.applyLevelUps(player);
+              this.broadcast("xpFloat", {
+                x: targetPlayer.x,
+                y: targetPlayer.y,
+                amount: gainedXp
+              });
             }
-            return;
+            targetPlayer.xp = 0;
+            targetPlayer.level = 1;
+            targetPlayer.statPoints = 0;
+            targetPlayer.attack = 5;
+            targetPlayer.defense = 2;
+            targetPlayer.speed = 1;
+            targetPlayer.attackSpeed = 1;
+            targetPlayer.luck = 1;
+            targetPlayer.maxHp = 100;
+            targetPlayer.hp = 0;
+            targetPlayer.maxSp = 50;
+            targetPlayer.sp = 0;
+            this.playerDeadUntil.set(targetPlayer.id, now + PLAYER_RESPAWN_MS);
           }
         }
       }
-      const target = this.findClosestEnemy(message.x, message.y, ATTACK_RADIUS);
-      if (!target) {
-        return;
-      }
-      const cooldownKey = `${client.sessionId}:${target.id}`;
-      const now = Date.now();
-      const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
-      const cooldownMs = getAttackCooldownMs(player.attackSpeed);
-      if (now - lastHit < cooldownMs) {
-        return;
-      }
-      this.enemyHitCooldown.set(cooldownKey, now);
-      const critChance = getCritChance(player.luck);
-      const isCritical = Math.random() < critChance;
-      const baseDamage = getAttackDamage(player.attack);
-      const damage = Math.round(
-        applyDefense(baseDamage, ENEMY_DEFENSE_BASE) *
-          (isCritical ? TUNING.critMultiplier : 1)
+      const targets = this.findEnemiesOnSegment(
+        originX,
+        originY,
+        targetX,
+        targetY,
+        ATTACK_HIT_RADIUS
       );
-      target.hp = Math.max(0, target.hp - damage);
-      this.broadcast("damageFloat", {
-        x: target.x,
-        y: target.y,
-        amount: damage,
-        kind: "dealt",
-        critical: isCritical,
-        targetId: target.id
-      });
-      this.broadcast("attackEffect", {
-        fromX: player.x,
-        fromY: player.y,
-        toX: message.x,
-        toY: message.y,
-        attackerId: player.id
-      });
-      if (target.hp <= 0) {
-        this.state.enemies.delete(target.id);
-        player.xp += ENEMY_XP_REWARD;
-        this.applyLevelUps(player);
-        this.broadcast("xpFloat", {
+      for (const target of targets) {
+        const cooldownKey = `${client.sessionId}:${target.id}`;
+        const now = Date.now();
+        const lastHit = this.enemyHitCooldown.get(cooldownKey) ?? 0;
+        const cooldownMs = getAttackCooldownMs(player.attackSpeed);
+        if (now - lastHit < cooldownMs) {
+          continue;
+        }
+        this.enemyHitCooldown.set(cooldownKey, now);
+        const critChance = getCritChance(player.luck);
+        const isCritical = Math.random() < critChance;
+        const baseDamage = getAttackDamage(player.attack);
+        const damage = Math.round(
+          applyDefense(baseDamage, ENEMY_DEFENSE_BASE) *
+            (isCritical ? TUNING.critMultiplier : 1)
+        );
+        target.hp = Math.max(0, target.hp - damage);
+        this.broadcast("damageFloat", {
           x: target.x,
           y: target.y,
-          amount: ENEMY_XP_REWARD
+          amount: damage,
+          kind: "dealt",
+          critical: isCritical,
+          targetId: target.id
+        });
+        didHit = true;
+        if (target.hp <= 0) {
+          this.state.enemies.delete(target.id);
+          player.xp += ENEMY_XP_REWARD;
+          this.applyLevelUps(player);
+          this.broadcast("xpFloat", {
+            x: target.x,
+            y: target.y,
+            amount: ENEMY_XP_REWARD
+          });
+        }
+      }
+      if (didHit) {
+        this.broadcast("attackEffect", {
+          fromX: originX,
+          fromY: originY,
+          toX: targetX,
+          toY: targetY,
+          attackerId: player.id
         });
       }
     });
@@ -215,42 +233,96 @@ export class SurvivorRoom extends Room<SurvivorState> {
     this.state.players.delete(client.sessionId);
   }
 
-  private findClosestEnemy(
-    x: number,
-    y: number,
+  private findEnemiesOnSegment(
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
     radius: number
-  ): Enemy | undefined {
-    let closest: Enemy | undefined;
-    let closestDistance = radius;
+  ) {
+    const results: Enemy[] = [];
+    const maxDistance = Math.hypot(endX - startX, endY - startY);
+    if (maxDistance <= 0) {
+      return results;
+    }
     for (const enemy of this.state.enemies.values()) {
-      const distance = Math.hypot(enemy.x - x, enemy.y - y);
-      if (distance <= closestDistance) {
-        closestDistance = distance;
-        closest = enemy;
+      const distanceAlong = distanceAlongSegment(
+        startX,
+        startY,
+        endX,
+        endY,
+        enemy.x,
+        enemy.y
+      );
+      if (distanceAlong < 0 || distanceAlong > maxDistance) {
+        continue;
+      }
+      const distance = distanceToSegment(
+        startX,
+        startY,
+        endX,
+        endY,
+        enemy.x,
+        enemy.y
+      );
+      if (distance <= radius) {
+        results.push(enemy);
       }
     }
-    return closest;
+    results.sort(
+      (left, right) =>
+        distanceAlongSegment(startX, startY, endX, endY, left.x, left.y) -
+        distanceAlongSegment(startX, startY, endX, endY, right.x, right.y)
+    );
+    return results;
   }
 
-  private findClosestPlayer(
+  private findPlayersOnSegment(
     attackerId: string,
-    x: number,
-    y: number,
+    startX: number,
+    startY: number,
+    endX: number,
+    endY: number,
     radius: number
-  ): Player | undefined {
-    let closest: Player | undefined;
-    let closestDistance = radius;
+  ) {
+    const results: Player[] = [];
+    const maxDistance = Math.hypot(endX - startX, endY - startY);
+    if (maxDistance <= 0) {
+      return results;
+    }
     for (const player of this.state.players.values()) {
       if (player.id === attackerId || player.isDead) {
         continue;
       }
-      const distance = Math.hypot(player.x - x, player.y - y);
-      if (distance <= closestDistance) {
-        closestDistance = distance;
-        closest = player;
+      const distanceAlong = distanceAlongSegment(
+        startX,
+        startY,
+        endX,
+        endY,
+        player.x,
+        player.y
+      );
+      if (distanceAlong < 0 || distanceAlong > maxDistance) {
+        continue;
+      }
+      const distance = distanceToSegment(
+        startX,
+        startY,
+        endX,
+        endY,
+        player.x,
+        player.y
+      );
+      if (distance <= radius) {
+        results.push(player);
       }
     }
-    return closest;
+    results.sort(
+      (left, right) =>
+        distanceAlongSegment(startX, startY, endX, endY, left.x, left.y) -
+        distanceAlongSegment(startX, startY, endX, endY, right.x, right.y)
+    );
+    return results;
   }
 
   private tick(dt: number) {
@@ -474,6 +546,44 @@ const randomRange = (min: number, max: number) =>
 const clamp = (value: number, min: number, max: number) =>
   Math.max(min, Math.min(max, value));
 
+const distanceToSegment = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  px: number,
+  py: number
+) => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq <= 0) {
+    return Math.hypot(px - x1, py - y1);
+  }
+  const t = clamp(((px - x1) * dx + (py - y1) * dy) / lengthSq, 0, 1);
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  return Math.hypot(px - projX, py - projY);
+};
+
+const distanceAlongSegment = (
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  px: number,
+  py: number
+) => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSq = dx * dx + dy * dy;
+  if (lengthSq <= 0) {
+    return -1;
+  }
+  const t = ((px - x1) * dx + (py - y1) * dy) / lengthSq;
+  return t < 0 || t > 1 ? -1 : Math.sqrt(lengthSq) * t;
+};
+
 const getMoveMultiplier = (speed: number) => {
   const normalized = Math.max(0, speed - 1);
   return clamp(
@@ -506,7 +616,8 @@ const getCritChance = (luck: number) => {
 
 const MAP_WIDTH = 1536 * 4;
 const MAP_HEIGHT = 1024 * 4;
-const ATTACK_RADIUS = 120;
+const ATTACK_RANGE = 420;
+const ATTACK_HIT_RADIUS = 16;
 const ENEMY_CONTACT_DAMAGE = 8;
 const ENEMY_MOVE_SPEED = 120;
 const ENEMY_CONTACT_RADIUS = 32;
@@ -524,7 +635,7 @@ const PLAYER_CONTACT_COOLDOWN_MS = 600;
 const ENEMY_DEFENSE_BASE = 0;
 
 const TUNING = {
-  baseMoveSpeed: 220,
+  baseMoveSpeed: 200,
   movePerPoint: 0.08,
   moveMaxMult: 2,
   baseAttackStat: 5,
@@ -532,7 +643,7 @@ const TUNING = {
   attackPerPoint: 1,
   defenseReducePerPoint: 0.6,
   minDamage: 1,
-  baseAttackCooldownMs: 350,
+  baseAttackCooldownMs: 500,
   cooldownReductionPerPoint: 18,
   minAttackCooldownMs: 120,
   baseCritChance: 0.04,

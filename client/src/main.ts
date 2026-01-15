@@ -58,8 +58,27 @@ const BOMB_FPS = 24;
 const MAX_ACTIVE_BOMBS = 8;
 const BOMB_Y_OFFSET = -50;
 const BGM_VOLUME_DEFAULT = 0.5;
+const SE_VOLUME_DEFAULT = 0.5;
+const ATTACK_SE_PATHS = [
+  new URL("../../mob/attack/voice1.wav", import.meta.url).href,
+  new URL("../../mob/attack/voice2.wav", import.meta.url).href,
+  new URL("../../mob/attack/voice3.wav", import.meta.url).href
+];
+const ATTACK_SE_KEYS = ATTACK_SE_PATHS.map((_, index) => `se_attack_${index + 1}`);
+const DAMAGE_SE_PATHS = [
+  new URL("../../mob/damage/voice1.wav", import.meta.url).href,
+  new URL("../../mob/damage/voice2.wav", import.meta.url).href,
+  new URL("../../mob/damage/voice3.wav", import.meta.url).href
+];
+const DAMAGE_SE_KEYS = DAMAGE_SE_PATHS.map((_, index) => `se_damage_${index + 1}`);
+const DEATH_SE_PATH = new URL("../../audio/se/boobm.wav", import.meta.url).href;
+const DEATH_SE_KEY = "se_death";
+const DEATH_SE_SELF_BASE = 0.7;
+const DEATH_SE_OTHER_BASE = 0.42;
 const PC_HINT_ICON_SCALE = 1.1;
 const PC_ACTION_ROW_HEIGHT_MULT = 1.25;
+const ATTACK_COOLDOWN_MS = 500;
+const PLAYER_SPRITE_SIZE = 100;
 const mobtaroFrameEntries = Object.entries(
   import.meta.glob("../../images/mobtaro_sprite/*.png", {
     eager: true,
@@ -169,11 +188,13 @@ class MainScene extends Phaser.Scene {
   private detailProfileCenter?: { x: number; y: number };
   private optionPanel?: Phaser.GameObjects.Container;
   private optionVolumeText?: Phaser.GameObjects.Text;
+  private optionSeText?: Phaser.GameObjects.Text;
   private optionButtons: Phaser.GameObjects.Rectangle[] = [];
   private optionButtonLabels: Phaser.GameObjects.Text[] = [];
   private bgmSound?: Phaser.Sound.BaseSound;
   private bgmArmed = false;
   private bgmVolume = BGM_VOLUME_DEFAULT;
+  private seVolume = SE_VOLUME_DEFAULT;
   private mobileGuideTexts: Phaser.GameObjects.Text[] = [];
   private mobileHpValueText?: Phaser.GameObjects.Text;
   private mobileHpFill?: Phaser.GameObjects.Rectangle;
@@ -213,6 +234,7 @@ class MainScene extends Phaser.Scene {
   private lastMoveDirection?: { x: number; y: number };
   private lastKnownDead = new Map<string, boolean>();
   private activeBombs: Phaser.GameObjects.Sprite[] = [];
+  private nextAttackAtMs = 0;
 
   constructor() {
     super("main");
@@ -235,6 +257,15 @@ class MainScene extends Phaser.Scene {
       "bgm_school",
       new URL("../../audio/school/Pixel Playground Afternoon.wav", import.meta.url).href
     );
+    ATTACK_SE_PATHS.forEach((path, index) => {
+      this.load.audio(ATTACK_SE_KEYS[index], path);
+    });
+    DAMAGE_SE_PATHS.forEach((path, index) => {
+      this.load.audio(DAMAGE_SE_KEYS[index], path);
+    });
+    if (DEATH_SE_PATH) {
+      this.load.audio(DEATH_SE_KEY, DEATH_SE_PATH);
+    }
     mobtaroFrameUrls.forEach((url, index) => {
       this.load.image(mobtaroFrameKeys[index], url);
     });
@@ -358,6 +389,14 @@ class MainScene extends Phaser.Scene {
         this.lastAimWorld = { x: pointer.worldX, y: pointer.worldY };
       }
     });
+    const resetAttackState = () => this.resetAttackInputState();
+    window.addEventListener("blur", resetAttackState);
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        resetAttackState();
+      }
+    });
+    this.game.canvas.addEventListener("pointerleave", resetAttackState);
 
     this.joinServer().catch((error) => {
       console.error(error);
@@ -514,7 +553,7 @@ class MainScene extends Phaser.Scene {
         if (isSelf) {
         const sprite = this.add
           .sprite(player.x, player.y, mobtaroFrameKeys[0])
-          .setDisplaySize(40, 40)
+          .setDisplaySize(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)
           .play("mobtaro_walk");
           this.selfSprite = sprite;
           this.cameras.main.startFollow(sprite);
@@ -522,7 +561,7 @@ class MainScene extends Phaser.Scene {
         } else {
           const sprite = this.add
           .sprite(player.x, player.y, mobtaroFrameKeys[0])
-          .setDisplaySize(40, 40)
+          .setDisplaySize(PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE)
           .setAlpha(0.55)
           .play("mobtaro_walk");
           this.playerSprites.set(id, sprite);
@@ -633,6 +672,7 @@ class MainScene extends Phaser.Scene {
           resolvedKind,
           message.critical
         );
+        this.playRandomSe(DAMAGE_SE_KEYS, 1);
         if (message.targetId === this.playerId) {
           this.spawnSelfDamageEffect(
             this.selfSprite?.x ?? message.x,
@@ -1179,11 +1219,23 @@ class MainScene extends Phaser.Scene {
     if (!this.selfSprite || this.selfIsDead) {
       return;
     }
+    const now = Date.now();
+    if (now < this.nextAttackAtMs) {
+      return;
+    }
+    this.nextAttackAtMs = now + ATTACK_COOLDOWN_MS;
     this.spawnAttackEffect(this.selfSprite.x, this.selfSprite.y, target.x, target.y);
+    this.playRandomSe(ATTACK_SE_KEYS, 1);
     if (!this.room || !this.room.connection.isOpen) {
       return;
     }
     this.room.send("attack", { source, x: target.x, y: target.y });
+  }
+
+  private resetAttackInputState() {
+    this.mobileTapStarts.clear();
+    this.mobileHoldTimers.forEach((timer) => timer.destroy());
+    this.mobileHoldTimers.clear();
   }
 
   private spawnAttackEffect(
@@ -1627,7 +1679,7 @@ class MainScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const uiDepth = 50;
     const panelWidth = 220;
-    const panelHeight = 120;
+    const panelHeight = 150;
     const panelX = width / 2;
     const panelY = height / 2;
     const panelStroke = 0x000000;
@@ -1643,11 +1695,28 @@ class MainScene extends Phaser.Scene {
       })
       .setScrollFactor(0);
     this.optionVolumeText = this.add
-      .text(panelX - panelWidth / 2 + 12, panelY - 4, "BGM: 50%", {
+      .text(
+        panelX - panelWidth / 2 + 12,
+        panelY - 4,
+        `BGM: ${Math.round(this.bgmVolume * 100)}%`,
+        {
         color: "#1a1b1f",
         fontSize: "11px",
         fontFamily: "Times New Roman"
-      })
+        }
+      )
+      .setScrollFactor(0);
+    this.optionSeText = this.add
+      .text(
+        panelX - panelWidth / 2 + 12,
+        panelY + 18,
+        `SE: ${Math.round(this.seVolume * 100)}%`,
+        {
+        color: "#1a1b1f",
+        fontSize: "11px",
+        fontFamily: "Times New Roman"
+        }
+      )
       .setScrollFactor(0);
     const minus = this.add
       .rectangle(panelX + 40, panelY - 6, 24, 20, 0xffffff, 1)
@@ -1675,10 +1744,38 @@ class MainScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setScrollFactor(0);
+    const seMinus = this.add
+      .rectangle(panelX + 40, panelY + 16, 24, 20, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const seMinusLabel = this.add
+      .text(panelX + 40, panelY + 16, "-", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    const sePlus = this.add
+      .rectangle(panelX + 70, panelY + 16, 24, 20, 0xffffff, 1)
+      .setStrokeStyle(1, panelStroke)
+      .setScrollFactor(0)
+      .setInteractive({ useHandCursor: true });
+    const sePlusLabel = this.add
+      .text(panelX + 70, panelY + 16, "+", {
+        color: "#1a1b1f",
+        fontSize: "12px",
+        fontFamily: "Times New Roman"
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
     minus.on("pointerdown", () => this.setBgmVolume(this.bgmVolume - 0.1));
     plus.on("pointerdown", () => this.setBgmVolume(this.bgmVolume + 0.1));
-    this.optionButtons = [minus, plus];
-    this.optionButtonLabels = [minusLabel, plusLabel];
+    seMinus.on("pointerdown", () => this.setSeVolume(this.seVolume - 0.1));
+    sePlus.on("pointerdown", () => this.setSeVolume(this.seVolume + 0.1));
+    this.optionButtons = [minus, plus, seMinus, sePlus];
+    this.optionButtonLabels = [minusLabel, plusLabel, seMinusLabel, sePlusLabel];
 
     const closeBox = this.add
       .rectangle(panelX + panelWidth / 2 - 16, panelY - panelHeight / 2 + 14, 18, 18, 0xffffff, 1)
@@ -1699,10 +1796,15 @@ class MainScene extends Phaser.Scene {
       bg,
       title,
       this.optionVolumeText,
+      this.optionSeText,
       minus,
       minusLabel,
       plus,
       plusLabel,
+      seMinus,
+      seMinusLabel,
+      sePlus,
+      sePlusLabel,
       closeBox,
       closeLabel
     ]);
@@ -1759,6 +1861,35 @@ class MainScene extends Phaser.Scene {
     }
   }
 
+  private setSeVolume(value: number) {
+    this.seVolume = clamp(value, 0, 1);
+    if (this.optionSeText) {
+      this.optionSeText.setText(`SE: ${Math.round(this.seVolume * 100)}%`);
+    }
+  }
+
+  private playSe(key: string, baseVolume: number) {
+    if (this.seVolume <= 0) {
+      return;
+    }
+    if (!this.cache.audio.exists(key)) {
+      return;
+    }
+    const sound = this.sound.add(key, {
+      volume: clamp(baseVolume * this.seVolume, 0, 1)
+    });
+    sound.once(Phaser.Sound.Events.COMPLETE, () => sound.destroy());
+    sound.play();
+  }
+
+  private playRandomSe(keys: string[], baseVolume: number) {
+    if (keys.length === 0 || this.seVolume <= 0) {
+      return;
+    }
+    const index = Math.floor(Math.random() * keys.length);
+    this.playSe(keys[index], baseVolume);
+  }
+
   private handleDeathFx(playerId: string, x: number, y: number, isDead: boolean) {
     const wasDead = this.lastKnownDead.get(playerId) ?? false;
     if (!wasDead && isDead) {
@@ -1766,6 +1897,9 @@ class MainScene extends Phaser.Scene {
       const spawnX = sprite?.x ?? x;
       const spawnY = sprite?.y ?? y;
       this.spawnDeathExplosion(spawnX, spawnY);
+      const baseVolume =
+        playerId === this.playerId ? DEATH_SE_SELF_BASE : DEATH_SE_OTHER_BASE;
+      this.playSe(DEATH_SE_KEY, baseVolume);
       sprite?.setVisible(false);
     }
     if (wasDead && !isDead) {
