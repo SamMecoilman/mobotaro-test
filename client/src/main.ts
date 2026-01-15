@@ -36,6 +36,13 @@ type RoomState = {
   tick: number;
 };
 
+type AttackEffectHandle = {
+  orb: Phaser.GameObjects.Arc;
+  trail: Phaser.GameObjects.Rectangle;
+  glow: Phaser.GameObjects.Arc;
+  tween: Phaser.Tweens.Tween;
+};
+
 const extractFrameNumber = (path: string) => {
   const matches = path.match(/(\d+)/g);
   if (!matches || matches.length === 0) {
@@ -235,6 +242,8 @@ class MainScene extends Phaser.Scene {
   private lastKnownDead = new Map<string, boolean>();
   private activeBombs: Phaser.GameObjects.Sprite[] = [];
   private nextAttackAtMs = 0;
+  private attackEffectCounter = 0;
+  private attackEffects = new Map<string, AttackEffectHandle>();
 
   constructor() {
     super("main");
@@ -687,7 +696,23 @@ class MainScene extends Phaser.Scene {
         if (message.attackerId && message.attackerId === this.playerId) {
           return;
         }
-        this.spawnAttackEffect(message.fromX, message.fromY, message.toX, message.toY);
+        const attackId = message.attackId as string | undefined;
+        if (attackId && this.attackEffects.has(attackId)) {
+          return;
+        }
+        this.spawnAttackEffect(
+          message.fromX,
+          message.fromY,
+          message.toX,
+          message.toY,
+          attackId
+        );
+      });
+      this.room.onMessage("attackHit", (message) => {
+        if (!message || !message.attackId) {
+          return;
+        }
+        this.destroyAttackEffect(message.attackId, message.x, message.y);
       });
 
     this.room.onLeave(() => {
@@ -1224,12 +1249,19 @@ class MainScene extends Phaser.Scene {
       return;
     }
     this.nextAttackAtMs = now + ATTACK_COOLDOWN_MS;
-    this.spawnAttackEffect(this.selfSprite.x, this.selfSprite.y, target.x, target.y);
+    const attackId = this.createAttackId();
+    this.spawnAttackEffect(
+      this.selfSprite.x,
+      this.selfSprite.y,
+      target.x,
+      target.y,
+      attackId
+    );
     this.playRandomSe(ATTACK_SE_KEYS, 1);
     if (!this.room || !this.room.connection.isOpen) {
       return;
     }
-    this.room.send("attack", { source, x: target.x, y: target.y });
+    this.room.send("attack", { source, x: target.x, y: target.y, attackId });
   }
 
   private resetAttackInputState() {
@@ -1238,11 +1270,18 @@ class MainScene extends Phaser.Scene {
     this.mobileHoldTimers.clear();
   }
 
+  private createAttackId() {
+    this.attackEffectCounter += 1;
+    const seed = this.playerId ?? "local";
+    return `${seed}-${Date.now()}-${this.attackEffectCounter}`;
+  }
+
   private spawnAttackEffect(
     originX: number,
     originY: number,
     targetX: number,
-    targetY: number
+    targetY: number,
+    attackId?: string
   ) {
     const dx = targetX - originX;
     const dy = targetY - originY;
@@ -1270,7 +1309,7 @@ class MainScene extends Phaser.Scene {
       .setDepth(7);
 
     const duration = Math.max(160, travelDistance * 0.8);
-    this.tweens.add({
+    const tween = this.tweens.add({
       targets: [orb, trail, glow],
       x: finalX,
       y: finalY,
@@ -1280,8 +1319,31 @@ class MainScene extends Phaser.Scene {
         orb.destroy();
         trail.destroy();
         glow.destroy();
+        if (attackId) {
+          this.attackEffects.delete(attackId);
+        }
       }
     });
+    if (attackId) {
+      this.attackEffects.set(attackId, { orb, trail, glow, tween });
+    }
+  }
+
+  private destroyAttackEffect(attackId: string, x?: number, y?: number) {
+    const effect = this.attackEffects.get(attackId);
+    if (!effect) {
+      return;
+    }
+    effect.tween.stop();
+    if (typeof x === "number" && typeof y === "number") {
+      effect.orb.setPosition(x, y);
+      effect.trail.setPosition(x, y);
+      effect.glow.setPosition(x, y);
+    }
+    effect.orb.destroy();
+    effect.trail.destroy();
+    effect.glow.destroy();
+    this.attackEffects.delete(attackId);
   }
 
   private spawnXpFloat(x: number, y: number, amount: number) {
