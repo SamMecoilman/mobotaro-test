@@ -20,6 +20,7 @@ export class Player extends Schema {
   @type("number") speed = 1;
   @type("number") attackSpeed = 1;
   @type("number") luck = 1;
+  @type("number") range = 1;
 }
 
 export class Enemy extends Schema {

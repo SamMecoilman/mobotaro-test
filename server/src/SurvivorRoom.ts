@@ -55,7 +55,8 @@ export class SurvivorRoom extends Room<SurvivorState> {
       if (distance <= 0) {
         return;
       }
-      const clampedDistance = Math.min(distance, ATTACK_RANGE);
+      const rangeValue = player.range ?? 1;
+      const clampedDistance = Math.min(distance, ATTACK_BASE_RANGE * rangeValue);
       const nx = dx / distance;
       const ny = dy / distance;
       const targetX = originX + nx * clampedDistance;
@@ -134,6 +135,9 @@ export class SurvivorRoom extends Room<SurvivorState> {
           break;
         case "moveSpeed":
           player.speed += amount;
+          break;
+        case "range":
+          player.range += amount;
           break;
         case "atkSpeed":
           player.attackSpeed += amount;
@@ -308,6 +312,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
                 targetPlayer.speed = 1;
                 targetPlayer.attackSpeed = 1;
                 targetPlayer.luck = 1;
+                targetPlayer.range = 1;
                 targetPlayer.maxHp = 100;
                 targetPlayer.hp = 0;
                 targetPlayer.maxSp = 50;
@@ -478,6 +483,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
       player.speed = 1;
       player.attackSpeed = 1;
       player.luck = 1;
+      player.range = 1;
       player.maxHp = 100;
       player.hp = 0;
       player.maxSp = 50;
@@ -528,6 +534,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
       player.speed = 1;
       player.attackSpeed = 1;
       player.luck = 1;
+      player.range = 1;
       player.maxHp = 100;
       player.hp = 0;
       player.maxSp = 50;
@@ -613,7 +620,7 @@ const getCritChance = (luck: number) => {
 
 const MAP_WIDTH = 1536 * 4;
 const MAP_HEIGHT = 1024 * 4;
-const ATTACK_RANGE = 420;
+const ATTACK_BASE_RANGE = 140;
 const ATTACK_HIT_RADIUS = 16;
 const ENEMY_CONTACT_DAMAGE = 8;
 const ENEMY_MOVE_SPEED = 120;

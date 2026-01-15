@@ -19,6 +19,7 @@ type PlayerState = {
   speed?: number;
   attackSpeed?: number;
   luck?: number;
+  range?: number;
 };
 
 type EnemyState = {
@@ -67,6 +68,52 @@ const SE_VOLUME_DEFAULT = 0.5;
 const ATTACK_EFFECT_KEY = "attack_effect";
 const ATTACK_EFFECT_HEIGHT_RATIO = 0.6;
 const ATTACK_EFFECT_OFFSET_RATIO = 0.2;
+const ATTACK_BASE_RANGE = 140;
+const INV_PANEL_KEY = "inventory_panel";
+const SKILL_PANEL_KEY = "skill_panel";
+const PC_UI_DEPTH = 35;
+const PC_UI_MARGIN = 16;
+const PC_UI_DEBUG = true;
+const PC_PANEL_TWEEN_MS = 240;
+const PC_SLOT_SNAP_RADIUS = 24;
+const DEBUG_PC_RESIZE = false;
+const DEBUG_PC_UI_LAYOUT = false;
+const DEBUG_PC_UI_CALIB = false;
+const INV_HIT_SCALE = 0.82;
+const SKILL_HIT_SCALE = 0.86;
+const MAIN_PANEL_BASE_KEY = "main_panel_base";
+const MAIN_PANEL_XP_MASK_KEY = "main_panel_xp_mask";
+const MAIN_PANEL_HP_MASK_KEY = "main_panel_hp_mask";
+const MAIN_PANEL_SP_MASK_KEY = "main_panel_sp_mask";
+const MAIN_PANEL_DEPTH = 28;
+const MAIN_PANEL_SCALE = 0.45;
+const DEBUG_MAINPANEL_MASK = false;
+const HP_MASK_STEPS = 0;
+const DEBUG_HP_DIVERGENCE = false;
+const INV_GRID = {
+  cols: 4,
+  rows: 4,
+  startX: 66,
+  startY: 151,
+  cellW: 157,
+  cellH: 148,
+  gapX: 26,
+  gapY: 29,
+  insetX: 14,
+  insetY: 14
+};
+const SKILL_GRID = {
+  cols: 4,
+  rows: 2,
+  startX: 86,
+  startY: 181,
+  cellW: 131,
+  cellH: 136,
+  gapX: 51,
+  gapY: 48,
+  insetX: 10,
+  insetY: 10
+};
 const ATTACK_SE_PATHS = [
   new URL("../../mob/attack/voice1.wav", import.meta.url).href,
   new URL("../../mob/attack/voice2.wav", import.meta.url).href,
@@ -182,6 +229,41 @@ class MainScene extends Phaser.Scene {
   private pcOptionHintEl?: HTMLImageElement;
   private pcOptionButtonEl?: HTMLElement;
   private pcActionUiGame?: Phaser.Game;
+  private pcRightUiRoot?: Phaser.GameObjects.Container;
+  private pcInventoryContainer?: Phaser.GameObjects.Container;
+  private pcSkillContainer?: Phaser.GameObjects.Container;
+  private pcInventoryPanel?: Phaser.GameObjects.Image;
+  private pcSkillPanel?: Phaser.GameObjects.Image;
+  private pcInventoryBgZone?: Phaser.GameObjects.Zone;
+  private pcSkillBgZone?: Phaser.GameObjects.Zone;
+  private pcInventorySlots: Phaser.GameObjects.Zone[] = [];
+  private pcSkillSlots: Phaser.GameObjects.Zone[] = [];
+  private pcInventoryTween?: Phaser.Tweens.Tween;
+  private pcSkillTween?: Phaser.Tweens.Tween;
+  private pcInventoryOpen = false;
+  private pcSkillOpen = false;
+  private pcInventoryOpenY = 0;
+  private pcInventoryClosedY = 0;
+  private pcSkillOpenY = 0;
+  private pcSkillClosedY = 0;
+  private pcDragStart?: { kind: "inv" | "skill"; index: number };
+  private pcDragPointerId?: number;
+  private pcDragLastHover?: string;
+  private pcCalibTarget: "inv" | "skill" = "inv";
+  private pcUiHitTargets: Phaser.GameObjects.GameObject[] = [];
+  private pcInvDebugGfx?: Phaser.GameObjects.Graphics;
+  private pcSkillDebugGfx?: Phaser.GameObjects.Graphics;
+  private mainPanelBase?: Phaser.GameObjects.Image;
+  private mainPanelXpMask?: Phaser.GameObjects.Image;
+  private mainPanelHpMask?: Phaser.GameObjects.Image;
+  private mainPanelSpMask?: Phaser.GameObjects.Image;
+  private mainPanelZone?: Phaser.GameObjects.Zone;
+  private mainPanelXpRatio = 0;
+  private mainPanelHpRatio = 1;
+  private mainPanelSpRatio = 1;
+  private mainPanelXpMax = 1;
+  private selfHp = 0;
+  private selfMaxHp = 100;
   private mobileDetailButton?: Phaser.GameObjects.Rectangle;
   private detailPanel?: Phaser.GameObjects.Container;
   private detailSprite?: Phaser.GameObjects.Sprite;
@@ -245,6 +327,7 @@ class MainScene extends Phaser.Scene {
   private nextAttackAtMs = 0;
   private attackEffectCounter = 0;
   private attackEffects = new Map<string, AttackEffectHandle>();
+  private selfPlayerRange = 1;
 
   constructor() {
     super("main");
@@ -266,6 +349,30 @@ class MainScene extends Phaser.Scene {
     this.load.image(
       ATTACK_EFFECT_KEY,
       new URL("../../images/effect/nomarl_attack_0.png", import.meta.url).href
+    );
+    this.load.image(
+      MAIN_PANEL_BASE_KEY,
+      new URL("../../images/menue/main_panel_base.png", import.meta.url).href
+    );
+    this.load.image(
+      MAIN_PANEL_XP_MASK_KEY,
+      new URL("../../images/menue/main_panel_base_xp_mask.png", import.meta.url).href
+    );
+    this.load.image(
+      MAIN_PANEL_HP_MASK_KEY,
+      new URL("../../images/menue/main_panel_base_hp_mask.png", import.meta.url).href
+    );
+    this.load.image(
+      MAIN_PANEL_SP_MASK_KEY,
+      new URL("../../images/menue/main_panel_base_sp_mask.png", import.meta.url).href
+    );
+    this.load.image(
+      INV_PANEL_KEY,
+      new URL("../../images/menue/inventory_panel.png", import.meta.url).href
+    );
+    this.load.image(
+      SKILL_PANEL_KEY,
+      new URL("../../images/menue/skill_panel.png", import.meta.url).href
     );
     this.load.audio(
       "bgm_school",
@@ -367,6 +474,29 @@ class MainScene extends Phaser.Scene {
       this.scale.on("resize", () => {
         this.updatePcCharacterHintPosition();
       });
+      this.createPcRightUi();
+      this.layoutPcRightUi(this.scale.width, this.scale.height);
+      this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
+        this.layoutPcRightUi(gameSize.width, gameSize.height);
+      });
+      this.input.keyboard?.on("keydown-I", () => {
+        this.togglePcInventory();
+      });
+      this.input.keyboard?.on("keydown-K", () => {
+        this.togglePcSkill();
+      });
+      this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+        if (!DEBUG_PC_UI_CALIB) {
+          return;
+        }
+        this.handlePcUiCalibrationKey(event);
+      });
+      this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+        this.handlePcDragMove(pointer);
+      });
+      this.input.on("pointerup", (pointer: Phaser.Input.Pointer) => {
+        this.handlePcDragEnd(pointer);
+      });
       this.input.keyboard?.on("keydown-C", () => {
         const active = document.activeElement;
         if (active && ["INPUT", "TEXTAREA"].includes(active.tagName)) {
@@ -395,8 +525,13 @@ class MainScene extends Phaser.Scene {
       this.setupPointerAttack();
       this.createDetailPanel();
     }
+    this.createMainPanel();
     this.createOptionPanel();
     this.setupBgmPlayback();
+
+    this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
+      this.layoutMainPanel(gameSize.width, gameSize.height);
+    });
 
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (this.isPointerWithinCanvas(pointer)) {
@@ -411,6 +546,24 @@ class MainScene extends Phaser.Scene {
       }
     });
     this.game.canvas.addEventListener("pointerleave", resetAttackState);
+
+    if (!isMobile) {
+      this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+        if (event.key === "[") {
+          this.mainPanelXpRatio = clamp(this.mainPanelXpRatio - 0.05, 0, 1);
+          this.updateMainPanelMasks();
+        } else if (event.key === "]") {
+          this.mainPanelXpRatio = clamp(this.mainPanelXpRatio + 0.05, 0, 1);
+          this.updateMainPanelMasks();
+        } else if (event.key === ";") {
+          this.mainPanelSpRatio = clamp(this.mainPanelSpRatio - 0.05, 0, 1);
+          this.updateMainPanelMasks();
+        } else if (event.key === "'") {
+          this.mainPanelSpRatio = clamp(this.mainPanelSpRatio + 0.05, 0, 1);
+          this.updateMainPanelMasks();
+        }
+      });
+    }
 
     this.joinServer().catch((error) => {
       console.error(error);
@@ -705,12 +858,17 @@ class MainScene extends Phaser.Scene {
         if (attackId && this.attackEffects.has(attackId)) {
           return;
         }
+        const distance = Math.hypot(
+          message.toX - message.fromX,
+          message.toY - message.fromY
+        );
         this.spawnAttackEffect(
           message.fromX,
           message.fromY,
           message.toX,
           message.toY,
-          attackId
+          attackId,
+          distance
         );
       });
       this.room.onMessage("attackHit", (message) => {
@@ -1056,8 +1214,8 @@ class MainScene extends Phaser.Scene {
       if (pointer.pointerType === "mouse" && pointer.button !== 0) {
         return;
       }
-      const isUi = this.isPointerOverMobileUi(pointer);
-      const isStick = this.isPointerOverStick(pointer);
+      const isUi = this.isPointerOverUi(pointer);
+      const isStick = isMobileDevice && this.isPointerOverStick(pointer);
       const start: TapStart = {
         x: pointer.x,
         y: pointer.y,
@@ -1127,7 +1285,16 @@ class MainScene extends Phaser.Scene {
     });
   }
 
-  private isPointerOverMobileUi(pointer: Phaser.Input.Pointer) {
+  private isPointerOverUi(pointer: Phaser.Input.Pointer) {
+    if (!isMobileDevice) {
+      if (this.detailPanel?.visible || this.optionPanel?.visible) {
+        return true;
+      }
+      if (this.pcUiHitTargets.length === 0) {
+        return false;
+      }
+      return this.input.hitTestPointer(pointer, this.pcUiHitTargets).length > 0;
+    }
     if (this.detailPanel?.visible) {
       return true;
     }
@@ -1173,10 +1340,647 @@ class MainScene extends Phaser.Scene {
     if (this.optionPanel?.visible) {
       targets.push(this.optionPanel);
     }
+    if (this.mainPanelZone) {
+      targets.push(this.mainPanelZone);
+    }
 
     return targets.some((target) =>
       Phaser.Geom.Rectangle.Contains(target.getBounds(), pointer.x, pointer.y)
     );
+  }
+
+  private createPcRightUi() {
+    if (this.pcRightUiRoot) {
+      return;
+    }
+    this.pcRightUiRoot = this.add
+      .container(0, 0)
+      .setDepth(PC_UI_DEPTH)
+      .setScrollFactor(0);
+
+    this.pcInventoryContainer = this.add.container(0, 0).setScrollFactor(0);
+    this.pcSkillContainer = this.add.container(0, 0).setScrollFactor(0);
+    this.pcRightUiRoot.add([this.pcInventoryContainer, this.pcSkillContainer]);
+
+    this.pcInventoryPanel = this.add
+      .image(0, 0, INV_PANEL_KEY)
+      .setOrigin(0, 0);
+    this.pcSkillPanel = this.add
+      .image(0, 0, SKILL_PANEL_KEY)
+      .setOrigin(0, 0);
+    this.pcInventoryPanel.setInteractive({ useHandCursor: false });
+    this.pcSkillPanel.setInteractive({ useHandCursor: false });
+
+    this.pcInventoryBgZone = this.add
+      .zone(0, 0, this.pcInventoryPanel.width, this.pcInventoryPanel.height)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: false });
+    this.pcSkillBgZone = this.add
+      .zone(0, 0, this.pcSkillPanel.width, this.pcSkillPanel.height)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: false });
+
+    this.pcInventoryContainer.add([
+      this.pcInventoryPanel,
+      this.pcInventoryBgZone
+    ]);
+    this.pcSkillContainer.add([
+      this.pcSkillPanel,
+      this.pcSkillBgZone
+    ]);
+
+    this.pcUiHitTargets = [
+      this.pcInventoryPanel,
+      this.pcSkillPanel,
+      this.pcInventoryBgZone,
+      this.pcSkillBgZone
+    ];
+
+    if (PC_UI_DEBUG) {
+      this.pcInvDebugGfx = this.add.graphics();
+      this.pcSkillDebugGfx = this.add.graphics();
+      this.pcInventoryContainer.add(this.pcInvDebugGfx);
+      this.pcSkillContainer.add(this.pcSkillDebugGfx);
+      this.updatePcDebugFrame();
+    }
+
+    const inventorySource = this.textures.get(INV_PANEL_KEY).getSourceImage() as
+      | HTMLImageElement
+      | undefined;
+    if (inventorySource) {
+      console.log(
+        `[ui] inventory_panel size ${inventorySource.width}x${inventorySource.height}`
+      );
+    }
+    const skillSource = this.textures.get(SKILL_PANEL_KEY).getSourceImage() as
+      | HTMLImageElement
+      | undefined;
+    if (skillSource) {
+      console.log(`[ui] skill_panel size ${skillSource.width}x${skillSource.height}`);
+    }
+  }
+
+  private createMainPanel() {
+    if (this.mainPanelBase) {
+      return;
+    }
+    this.mainPanelBase = this.add
+      .image(0, 0, MAIN_PANEL_BASE_KEY)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(MAIN_PANEL_DEPTH)
+      .setScale(MAIN_PANEL_SCALE);
+    this.mainPanelXpMask = this.add
+      .image(0, 0, MAIN_PANEL_XP_MASK_KEY)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(MAIN_PANEL_DEPTH + 1)
+      .setScale(MAIN_PANEL_SCALE);
+    this.mainPanelHpMask = this.add
+      .image(0, 0, MAIN_PANEL_HP_MASK_KEY)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(MAIN_PANEL_DEPTH + 1)
+      .setScale(MAIN_PANEL_SCALE);
+    this.mainPanelSpMask = this.add
+      .image(0, 0, MAIN_PANEL_SP_MASK_KEY)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(MAIN_PANEL_DEPTH + 1)
+      .setScale(MAIN_PANEL_SCALE);
+
+    this.mainPanelZone = this.add
+      .zone(0, 0, this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight)
+      .setOrigin(0, 0)
+      .setScrollFactor(0)
+      .setDepth(MAIN_PANEL_DEPTH + 2)
+      .setInteractive({ useHandCursor: false });
+
+    if (!isMobileDevice) {
+      this.pcUiHitTargets.push(this.mainPanelZone);
+    }
+
+    this.layoutMainPanel(this.scale.width, this.scale.height);
+    this.updateMainPanelMasks();
+  }
+
+  private layoutMainPanel(width: number, height: number) {
+    if (!this.mainPanelBase || !this.mainPanelZone) {
+      return;
+    }
+    const x = 0;
+    const y = 0;
+    this.mainPanelBase.setPosition(x, y);
+    this.mainPanelXpMask?.setPosition(x, y);
+    this.mainPanelHpMask?.setPosition(x, y);
+    this.mainPanelSpMask?.setPosition(x, y);
+    this.mainPanelZone.setPosition(x, y);
+    this.mainPanelZone.setSize(this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight);
+    this.mainPanelZone.input?.hitArea?.setTo(0, 0, this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight);
+  }
+
+  private updateMainPanelMasks() {
+    if (!this.mainPanelBase || !this.mainPanelXpMask || !this.mainPanelHpMask || !this.mainPanelSpMask) {
+      return;
+    }
+    const width = this.mainPanelBase.width;
+    const height = this.mainPanelBase.height;
+    const xpRatio = clamp(this.mainPanelXpRatio, 0, 1);
+    const hpRawRatio = clamp(this.mainPanelHpRatio, 0, 1);
+    const hpRatio = HP_MASK_STEPS > 0
+      ? Math.max(0, Math.min(1, Math.round(hpRawRatio * HP_MASK_STEPS) / HP_MASK_STEPS))
+      : hpRawRatio;
+    const spRatio = clamp(this.mainPanelSpRatio, 0, 1);
+    this.updateMainPanelMask(this.mainPanelXpMask, width, height, xpRatio, "right");
+    this.updateMainPanelMask(this.mainPanelHpMask, width, height, hpRatio, "right", "hp");
+    this.updateMainPanelMask(this.mainPanelSpMask, width, height, spRatio, "right");
+    if (DEBUG_MAINPANEL_MASK) {
+      const xpWidth = Math.max(0, (1 - xpRatio) * width);
+      const hpWidth = Math.max(0, (1 - hpRatio) * width);
+      const spWidth = Math.max(0, (1 - spRatio) * width);
+      console.log(
+        `[mask] hp r=${hpRawRatio.toFixed(2)} rq=${hpRatio.toFixed(2)} w=${hpWidth.toFixed(1)} xp ${this.mainPanelXpRatio.toFixed(2)} w=${xpWidth.toFixed(1)} sp ${this.mainPanelSpRatio.toFixed(2)} w=${spWidth.toFixed(1)}`
+      );
+    }
+  }
+
+  private updateMainPanelMask(
+    mask: Phaser.GameObjects.Image,
+    width: number,
+    height: number,
+    ratio: number,
+    direction: "left" | "right",
+    label?: string
+  ) {
+    const maskWidth = Math.max(0, Math.min(width, Math.round((1 - ratio) * width)));
+    if (maskWidth <= 0) {
+      mask.setVisible(false);
+      mask.setCrop(0, 0, 0, height);
+      if (DEBUG_MAINPANEL_MASK && label === "hp") {
+        console.log(
+          `[mask] hp w=0 fullW=${width.toFixed(1)} ratio=${ratio.toFixed(2)}`
+        );
+      }
+      return;
+    }
+    mask.setVisible(true);
+    if (direction === "left") {
+      mask.setCrop(0, 0, maskWidth, height);
+      return;
+    }
+    const startX = Math.max(0, width - maskWidth);
+    mask.setCrop(startX, 0, maskWidth, height);
+    if (DEBUG_MAINPANEL_MASK && label === "hp") {
+      console.log(
+        `[mask] hp fullW=${width.toFixed(1)} maskW=${maskWidth.toFixed(1)} cropX=${startX.toFixed(
+          1
+        )} ratio=${ratio.toFixed(2)}`
+      );
+    }
+  }
+
+
+  private layoutPcRightUi(width: number, height: number) {
+    if (!this.pcInventoryPanel || !this.pcSkillPanel) {
+      return;
+    }
+    const marginX = 0;
+    const inventoryX = width - this.pcInventoryPanel.displayWidth - marginX;
+    const skillX = width - this.pcSkillPanel.displayWidth - marginX;
+    const inventoryOpenY = 0;
+    const inventoryClosedY = -this.pcInventoryPanel.height;
+    const skillOpenY = height - this.pcSkillPanel.height;
+    const skillClosedY = height;
+
+    this.pcInventoryOpenY = inventoryOpenY;
+    this.pcInventoryClosedY = inventoryClosedY;
+    this.pcSkillOpenY = skillOpenY;
+    this.pcSkillClosedY = skillClosedY;
+
+    const inventoryTargetY = this.pcInventoryOpen ? inventoryOpenY : inventoryClosedY;
+    const skillTargetY = this.pcSkillOpen ? skillOpenY : skillClosedY;
+
+    this.pcInventoryContainer?.setPosition(inventoryX, inventoryTargetY);
+    this.pcSkillContainer?.setPosition(skillX, skillTargetY);
+    this.pcInventoryPanel.setPosition(0, 0);
+    this.pcSkillPanel.setPosition(0, 0);
+    this.pcInventoryBgZone?.setPosition(0, 0);
+    this.pcSkillBgZone?.setPosition(0, 0);
+    this.updatePcPanelInteractivity();
+    this.updatePcDebugFrame();
+    if (DEBUG_PC_UI_LAYOUT) {
+      console.log(
+        `[pc-ui] w=${width} h=${height} inv=${this.pcInventoryPanel.displayWidth}x${this.pcInventoryPanel.displayHeight} invPos=${this.pcInventoryContainer?.x},${this.pcInventoryContainer?.y} invPanel=${this.pcInventoryPanel.x},${this.pcInventoryPanel.y}`
+      );
+      console.log(
+        `[pc-ui] skill=${this.pcSkillPanel.displayWidth}x${this.pcSkillPanel.displayHeight} skillPos=${this.pcSkillContainer?.x},${this.pcSkillContainer?.y} skillPanel=${this.pcSkillPanel.x},${this.pcSkillPanel.y}`
+      );
+    }
+  }
+
+  private togglePcInventory() {
+    if (!this.pcInventoryContainer) {
+      return;
+    }
+    this.pcInventoryOpen = !this.pcInventoryOpen;
+    const targetY = this.pcInventoryOpen ? this.pcInventoryOpenY : this.pcInventoryClosedY;
+    this.pcInventoryTween?.stop();
+    this.pcInventoryTween = this.tweens.add({
+      targets: [this.pcInventoryContainer],
+      y: targetY,
+      duration: PC_PANEL_TWEEN_MS,
+      ease: "Sine.easeOut",
+      onUpdate: () => this.updatePcDebugFrame()
+    });
+    this.updatePcPanelInteractivity();
+    this.updatePcDebugFrame();
+  }
+
+  private togglePcSkill() {
+    if (!this.pcSkillContainer) {
+      return;
+    }
+    this.pcSkillOpen = !this.pcSkillOpen;
+    const targetY = this.pcSkillOpen ? this.pcSkillOpenY : this.pcSkillClosedY;
+    this.pcSkillTween?.stop();
+    this.pcSkillTween = this.tweens.add({
+      targets: [this.pcSkillContainer],
+      y: targetY,
+      duration: PC_PANEL_TWEEN_MS,
+      ease: "Sine.easeOut",
+      onUpdate: () => this.updatePcDebugFrame()
+    });
+    this.updatePcPanelInteractivity();
+    this.updatePcDebugFrame();
+  }
+
+  private createPcSlotZones(
+    kind: "inv" | "skill",
+    grid: typeof INV_GRID
+  ) {
+    const total = grid.cols * grid.rows;
+    const zones: Phaser.GameObjects.Zone[] = [];
+    for (let index = 0; index < total; index += 1) {
+      const zone = this.add
+        .zone(0, 0, grid.cellW, grid.cellH)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(PC_UI_DEPTH + 1)
+        .setInteractive({ useHandCursor: true });
+      zone.setData("kind", kind);
+      zone.setData("index", index);
+      zone.setData("hitScale", kind === "inv" ? INV_HIT_SCALE : SKILL_HIT_SCALE);
+      zone.on("pointerdown", () => this.handlePcSlotDown(zone));
+      zones.push(zone);
+    }
+    this.layoutPcSlotGridLocal(grid, zones);
+    return zones;
+  }
+
+  private layoutPcSlotGridLocal(
+    grid: typeof INV_GRID,
+    slots: Phaser.GameObjects.Zone[]
+  ) {
+    const startX = grid.startX;
+    const startY = grid.startY;
+    const cellW = grid.cellW;
+    const cellH = grid.cellH;
+    const gapX = grid.gapX;
+    const gapY = grid.gapY;
+    const insetX = grid.insetX ?? 0;
+    const insetY = grid.insetY ?? 0;
+    for (let row = 0; row < grid.rows; row += 1) {
+      for (let col = 0; col < grid.cols; col += 1) {
+        const index = row * grid.cols + col;
+        const slot = slots[index];
+        if (!slot) {
+          continue;
+        }
+        const baseX = startX + col * (cellW + gapX);
+        const baseY = startY + row * (cellH + gapY);
+        const baseW = Math.max(1, cellW - insetX * 2);
+        const baseH = Math.max(1, cellH - insetY * 2);
+        const scale = Number(slot.getData("hitScale") ?? 1);
+        const width = Math.max(1, baseW * scale);
+        const height = Math.max(1, baseH * scale);
+        const x = baseX + insetX + (baseW - width) / 2;
+        const y = baseY + insetY + (baseH - height) / 2;
+        slot.setPosition(x, y);
+        slot.setSize(width, height);
+        slot.input?.hitArea?.setTo(0, 0, width, height);
+      }
+    }
+  }
+
+  private handlePcSlotDown(slot: Phaser.GameObjects.Zone) {
+    const kind = slot.getData("kind") as "inv" | "skill";
+    const index = slot.getData("index") as number;
+    this.pcDragStart = { kind, index };
+    this.pcDragPointerId = this.input.activePointer.id;
+    this.pcDragLastHover = `${kind}:${index}`;
+    console.log(`[slot] ${kind} ${index} down`);
+  }
+
+  private handlePcDragMove(pointer: Phaser.Input.Pointer) {
+    if (!this.pcDragStart || this.pcDragPointerId !== pointer.id) {
+      return;
+    }
+    const hover = this.getPcSlotAtPointer(pointer);
+    const key = hover ? `${hover.kind}:${hover.index}` : "none";
+    if (key !== this.pcDragLastHover) {
+      this.pcDragLastHover = key;
+      if (hover) {
+        console.log(`[slot] drag over ${hover.kind} ${hover.index}`);
+      }
+    }
+  }
+
+  private handlePcDragEnd(pointer: Phaser.Input.Pointer) {
+    if (!this.pcDragStart || this.pcDragPointerId !== pointer.id) {
+      return;
+    }
+    const start = this.pcDragStart;
+    const hover = this.getPcSlotAtPointer(pointer);
+    const drop = hover ?? this.getPcSnapSlot(pointer);
+    if (drop) {
+      const suffix = hover ? "" : " snap";
+      console.log(
+        `[slot] ${start.kind} ${start.index} up -> drop ${drop.kind} ${drop.index}${suffix}`
+      );
+    } else {
+      console.log(`[slot] ${start.kind} ${start.index} up -> drop none`);
+    }
+    this.pcDragStart = undefined;
+    this.pcDragPointerId = undefined;
+    this.pcDragLastHover = undefined;
+  }
+
+  private getPcSlotAtPointer(pointer: Phaser.Input.Pointer) {
+    const targets: Phaser.GameObjects.Zone[] = [
+      ...this.pcInventorySlots,
+      ...this.pcSkillSlots
+    ];
+    const hits = this.input.hitTestPointer(pointer, targets) as Phaser.GameObjects.Zone[];
+    const hit = hits[0];
+    if (!hit) {
+      return undefined;
+    }
+    return {
+      kind: hit.getData("kind") as "inv" | "skill",
+      index: hit.getData("index") as number
+    };
+  }
+
+  private getPcSnapSlot(pointer: Phaser.Input.Pointer) {
+    let best: { kind: "inv" | "skill"; index: number } | undefined;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    const candidates = [...this.pcInventorySlots, ...this.pcSkillSlots];
+    candidates.forEach((slot) => {
+      if (!slot.input?.enabled) {
+        return;
+      }
+      const bounds = slot.getBounds();
+      const centerX = bounds.x + bounds.width / 2;
+      const centerY = bounds.y + bounds.height / 2;
+      const distance = Math.hypot(pointer.x - centerX, pointer.y - centerY);
+      if (distance <= PC_SLOT_SNAP_RADIUS && distance < bestDistance) {
+        bestDistance = distance;
+        best = {
+          kind: slot.getData("kind") as "inv" | "skill",
+          index: slot.getData("index") as number
+        };
+      }
+    });
+    return best;
+  }
+
+  private updatePcPanelInteractivity() {
+    if (this.pcInventoryPanel) {
+      if (this.pcInventoryOpen) {
+        this.pcInventoryPanel.setInteractive();
+        this.pcInventoryBgZone?.setInteractive();
+      } else {
+        this.pcInventoryPanel.disableInteractive();
+        this.pcInventoryBgZone?.disableInteractive();
+      }
+    }
+    if (this.pcSkillPanel) {
+      if (this.pcSkillOpen) {
+        this.pcSkillPanel.setInteractive();
+        this.pcSkillBgZone?.setInteractive();
+      } else {
+        this.pcSkillPanel.disableInteractive();
+        this.pcSkillBgZone?.disableInteractive();
+      }
+    }
+    this.pcInventorySlots.forEach((slot) => {
+      if (this.pcInventoryOpen) {
+        slot.setInteractive();
+      } else {
+        slot.disableInteractive();
+      }
+    });
+    this.pcSkillSlots.forEach((slot) => {
+      if (this.pcSkillOpen) {
+        slot.setInteractive();
+      } else {
+        slot.disableInteractive();
+      }
+    });
+  }
+
+  private handlePcUiCalibrationKey(event: KeyboardEvent) {
+    const key = event.key;
+    if (key === "Tab") {
+      event.preventDefault();
+      this.pcCalibTarget = this.pcCalibTarget === "inv" ? "skill" : "inv";
+      this.logPcUiCalibration("target");
+      return;
+    }
+    const grid = this.pcCalibTarget === "inv" ? INV_GRID : SKILL_GRID;
+    const delta = (value: number, diff: number) => value + diff;
+    let changed = false;
+    let tag = "";
+    let amount = 1;
+    if (key === "Z" || key === "z") {
+      amount = 5;
+    } else if (key === "X" || key === "x") {
+      amount = 10;
+    }
+    if (key === "Backspace") {
+      event.preventDefault();
+      grid.insetX = 0;
+      grid.insetY = 0;
+      changed = true;
+      tag = "inset";
+    } else if (key === "Enter") {
+      event.preventDefault();
+      this.exportPcUiCalibration();
+      return;
+    } else if (event.shiftKey) {
+      if (key === "ArrowLeft") {
+        grid.cellW = delta(grid.cellW, -amount);
+        changed = true;
+        tag = "cell";
+      } else if (key === "ArrowRight") {
+        grid.cellW = delta(grid.cellW, amount);
+        changed = true;
+        tag = "cell";
+      } else if (key === "ArrowUp") {
+        grid.cellH = delta(grid.cellH, -amount);
+        changed = true;
+        tag = "cell";
+      } else if (key === "ArrowDown") {
+        grid.cellH = delta(grid.cellH, amount);
+        changed = true;
+        tag = "cell";
+      }
+    } else if (event.ctrlKey) {
+      if (key === "ArrowLeft") {
+        grid.gapX = delta(grid.gapX, -amount);
+        changed = true;
+        tag = "gap";
+      } else if (key === "ArrowRight") {
+        grid.gapX = delta(grid.gapX, amount);
+        changed = true;
+        tag = "gap";
+      } else if (key === "ArrowUp") {
+        grid.gapY = delta(grid.gapY, -amount);
+        changed = true;
+        tag = "gap";
+      } else if (key === "ArrowDown") {
+        grid.gapY = delta(grid.gapY, amount);
+        changed = true;
+        tag = "gap";
+      }
+    } else if (event.altKey) {
+      if (key === "ArrowLeft") {
+        grid.insetX = delta(grid.insetX, -amount);
+        changed = true;
+        tag = "inset";
+      } else if (key === "ArrowRight") {
+        grid.insetX = delta(grid.insetX, amount);
+        changed = true;
+        tag = "inset";
+      } else if (key === "ArrowUp") {
+        grid.insetY = delta(grid.insetY, -amount);
+        changed = true;
+        tag = "inset";
+      } else if (key === "ArrowDown") {
+        grid.insetY = delta(grid.insetY, amount);
+        changed = true;
+        tag = "inset";
+      }
+    } else {
+      if (key === "ArrowLeft") {
+        grid.startX = delta(grid.startX, -amount);
+        changed = true;
+        tag = "start";
+      } else if (key === "ArrowRight") {
+        grid.startX = delta(grid.startX, amount);
+        changed = true;
+        tag = "start";
+      } else if (key === "ArrowUp") {
+        grid.startY = delta(grid.startY, -amount);
+        changed = true;
+        tag = "start";
+      } else if (key === "ArrowDown") {
+        grid.startY = delta(grid.startY, amount);
+        changed = true;
+        tag = "start";
+      }
+    }
+    if (changed) {
+      event.preventDefault();
+      const slots = this.pcCalibTarget === "inv" ? this.pcInventorySlots : this.pcSkillSlots;
+      this.layoutPcSlotGridLocal(grid, slots);
+      this.updatePcDebugFrame();
+      this.logPcUiCalibration(tag || "update", amount);
+      if (DEBUG_PC_UI_CALIB) {
+        console.log(`[calib ${this.pcCalibTarget}][ref]`, grid);
+      }
+      if (PC_UI_DEBUG && slots.length > 0) {
+        const first = slots[0].getBounds();
+        const last = slots[slots.length - 1].getBounds();
+        console.log(
+          `[calib ${this.pcCalibTarget}][bounds] first=${Math.round(first.x)},${Math.round(first.y)} ${Math.round(first.width)}x${Math.round(first.height)} last=${Math.round(last.x)},${Math.round(last.y)} ${Math.round(last.width)}x${Math.round(last.height)}`
+        );
+      }
+    }
+  }
+
+  private logPcUiCalibration(tag: string, amount = 1) {
+    const grid = this.pcCalibTarget === "inv" ? INV_GRID : SKILL_GRID;
+    console.log(
+      `[calib ${this.pcCalibTarget}][${tag}][amt=${amount}] startX=${grid.startX} startY=${grid.startY} cellW=${grid.cellW} cellH=${grid.cellH} gapX=${grid.gapX} gapY=${grid.gapY} insetX=${grid.insetX} insetY=${grid.insetY}`
+    );
+  }
+
+  private exportPcUiCalibration() {
+    const grid = this.pcCalibTarget === "inv" ? INV_GRID : SKILL_GRID;
+    const name = this.pcCalibTarget === "inv" ? "INV_GRID" : "SKILL_GRID";
+    console.log(`[calib export ${this.pcCalibTarget}]`);
+    console.log(
+      `const ${name} = { cols:${grid.cols}, rows:${grid.rows}, startX:${grid.startX}, startY:${grid.startY}, cellW:${grid.cellW}, cellH:${grid.cellH}, gapX:${grid.gapX}, gapY:${grid.gapY}, insetX:${grid.insetX}, insetY:${grid.insetY} };`
+    );
+  }
+
+  private updatePcDebugFrame() {
+    if (!this.pcInvDebugGfx || !this.pcSkillDebugGfx) {
+      return;
+    }
+    const invGfx = this.pcInvDebugGfx;
+    const skillGfx = this.pcSkillDebugGfx;
+    invGfx.clear();
+    skillGfx.clear();
+    invGfx.setVisible(this.pcInventoryOpen);
+    skillGfx.setVisible(this.pcSkillOpen);
+
+    if (this.pcInventoryOpen) {
+      invGfx.lineStyle(1, 0x2b8cff, 0.7);
+      this.pcInventorySlots.forEach((slot, index) => {
+        const hitArea = slot.input?.hitArea as Phaser.Geom.Rectangle | undefined;
+        const rect = hitArea
+          ? {
+              x: slot.x + hitArea.x,
+              y: slot.y + hitArea.y,
+              width: hitArea.width,
+              height: hitArea.height
+            }
+          : { x: slot.x, y: slot.y, width: slot.width, height: slot.height };
+        if (index === 0) {
+          invGfx.fillStyle(0x2b8cff, 0.15);
+          invGfx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+        invGfx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+      });
+    }
+
+    if (this.pcSkillOpen) {
+      skillGfx.lineStyle(1, 0x2b8cff, 0.7);
+      this.pcSkillSlots.forEach((slot, index) => {
+        const hitArea = slot.input?.hitArea as Phaser.Geom.Rectangle | undefined;
+        const rect = hitArea
+          ? {
+              x: slot.x + hitArea.x,
+              y: slot.y + hitArea.y,
+              width: hitArea.width,
+              height: hitArea.height
+            }
+          : { x: slot.x, y: slot.y, width: slot.width, height: slot.height };
+        if (index === 0) {
+          skillGfx.fillStyle(0x2b8cff, 0.15);
+          skillGfx.fillRect(rect.x, rect.y, rect.width, rect.height);
+        }
+        skillGfx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+      });
+    }
+
+    if (DEBUG_PC_UI_CALIB) {
+      console.log(
+        `[calib debug] invOpen=${this.pcInventoryOpen} skillOpen=${this.pcSkillOpen} invSlots=${this.pcInventorySlots.length} skillSlots=${this.pcSkillSlots.length} invGfx=${invGfx.visible} skillGfx=${skillGfx.visible}`
+      );
+    }
   }
 
   private isPointerOverStick(pointer: Phaser.Input.Pointer) {
@@ -1286,7 +2090,8 @@ class MainScene extends Phaser.Scene {
     originY: number,
     targetX: number,
     targetY: number,
-    attackId?: string
+    attackId?: string,
+    maxDistanceOverride?: number
   ) {
     const dx = targetX - originX;
     const dy = targetY - originY;
@@ -1294,7 +2099,11 @@ class MainScene extends Phaser.Scene {
     if (distance < 6) {
       return;
     }
-    const maxDistance = 420;
+    const rangeValue = this.selfPlayerRange ?? 1;
+    const maxDistance =
+      typeof maxDistanceOverride === "number"
+        ? maxDistanceOverride
+        : ATTACK_BASE_RANGE * rangeValue;
     const travelDistance = Math.min(distance, maxDistance);
     const nx = dx / distance;
     const ny = dy / distance;
@@ -1516,7 +2325,8 @@ class MainScene extends Phaser.Scene {
       ["ATK", "atk"],
       ["DEF", "def"],
       ["LUCK", "luck"],
-      ["MOVE", "moveSpeed"],
+      ["MOVE SPD", "moveSpeed"],
+      ["RANGE", "range"],
       ["ATK SPD", "atkSpeed"]
     ];
     statRows.forEach((row, index) => {
@@ -2122,8 +2932,19 @@ class MainScene extends Phaser.Scene {
   private updateSelfHud(player: PlayerState) {
     const hp = player.hp ?? 0;
     const maxHp = player.maxHp ?? 100;
-    const ratio = maxHp > 0 ? hp / maxHp : 0;
+    this.selfHp = hp;
+    this.selfMaxHp = maxHp;
+    const ratio = this.selfMaxHp > 0 ? this.selfHp / this.selfMaxHp : 1;
+    if (DEBUG_MAINPANEL_MASK && this.selfMaxHp <= 0) {
+      console.warn("[mask] hp maxHp <= 0, defaulting ratio to 1");
+    }
+    if (DEBUG_HP_DIVERGENCE) {
+      console.log(
+        `[hp-src] state ${hp}/${maxHp} main ${this.selfHp}/${this.selfMaxHp}`
+      );
+    }
     this.selfIsDead = Boolean(player.isDead);
+    this.selfPlayerRange = player.range ?? 1;
 
     const level = player.level ?? 1;
     if (this.pcHpValueEl) {
@@ -2180,17 +3001,28 @@ class MainScene extends Phaser.Scene {
       this.mobileSpFill.setDisplaySize(width, this.mobileHpBarHeight);
     }
 
+    this.mainPanelHpRatio = clamp(ratio, 0, 1);
+    const sp = player.sp ?? 0;
+    const maxSp = player.maxSp ?? 100;
+    this.mainPanelSpRatio = maxSp > 0 ? clamp(sp / maxSp, 0, 1) : 1;
+    const xp = player.xp ?? 0;
+    const xpMax = this.getXpForLevel(level);
+    this.mainPanelXpMax = xpMax;
+    this.mainPanelXpRatio = xpMax > 0 ? clamp(xp / xpMax, 0, 1) : 0;
+    this.updateMainPanelMasks();
+
     if (this.selfSprite) {
       this.selfSprite.setAlpha(this.selfIsDead ? 0.4 : 1);
     }
 
     if (this.detailFields.size > 0) {
-      this.detailFields.get("hp")?.setText(`${player.hp ?? 0}`);
+      this.detailFields.get("hp")?.setText(`${this.selfHp}`);
       this.detailFields.get("sp")?.setText(`${player.sp ?? 0}`);
       this.detailFields.get("atk")?.setText(`${player.attack ?? 0}`);
       this.detailFields.get("def")?.setText(`${player.defense ?? 0}`);
-      this.detailFields.get("moveSpeed")?.setText(`${player.speed ?? 0}`);
-      this.detailFields.get("atkSpeed")?.setText(`${player.attackSpeed ?? 0}`);
+    this.detailFields.get("moveSpeed")?.setText(`${player.speed ?? 0}`);
+    this.detailFields.get("range")?.setText(`${player.range ?? 1}`);
+    this.detailFields.get("atkSpeed")?.setText(`${player.attackSpeed ?? 0}`);
       this.detailFields.get("luck")?.setText(`${player.luck ?? 0}`);
     }
     if (this.detailStatPoints) {
@@ -2278,7 +3110,7 @@ const getViewportSize = () => {
 const initialViewport = getViewportSize();
 const initialSize = isMobileDevice
   ? { width: initialViewport.width, height: initialViewport.height }
-  : { width: baseWidth, height: baseHeight };
+  : { width: initialViewport.width, height: initialViewport.height };
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: "app",
@@ -2307,5 +3139,28 @@ if (isMobileDevice) {
       const viewport = getViewportSize();
       game.scale.resize(viewport.width, viewport.height);
     });
+  }
+} else {
+  const logPcResize = (source: string) => {
+    if (!DEBUG_PC_RESIZE) {
+      return;
+    }
+    const rect = game.canvas.getBoundingClientRect();
+    console.log(
+      `[pc-resize:${source}] scale ${game.scale.width}x${game.scale.height} canvas ${Math.round(
+        rect.width
+      )}x${Math.round(rect.height)}`
+    );
+  };
+  const applyPcResize = (source: string) => {
+    const viewport = getViewportSize();
+    game.scale.resize(viewport.width, viewport.height);
+    logPcResize(source);
+  };
+  applyPcResize("init");
+  window.addEventListener("resize", () => applyPcResize("window"));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => applyPcResize("visual"));
+    window.visualViewport.addEventListener("scroll", () => applyPcResize("scroll"));
   }
 }
