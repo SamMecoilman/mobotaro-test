@@ -37,9 +37,7 @@ type RoomState = {
 };
 
 type AttackEffectHandle = {
-  orb: Phaser.GameObjects.Arc;
-  trail: Phaser.GameObjects.Rectangle;
-  glow: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Image;
   tween: Phaser.Tweens.Tween;
 };
 
@@ -66,6 +64,9 @@ const MAX_ACTIVE_BOMBS = 8;
 const BOMB_Y_OFFSET = -50;
 const BGM_VOLUME_DEFAULT = 0.5;
 const SE_VOLUME_DEFAULT = 0.5;
+const ATTACK_EFFECT_KEY = "attack_effect";
+const ATTACK_EFFECT_HEIGHT_RATIO = 0.6;
+const ATTACK_EFFECT_OFFSET_RATIO = 0.2;
 const ATTACK_SE_PATHS = [
   new URL("../../mob/attack/voice1.wav", import.meta.url).href,
   new URL("../../mob/attack/voice2.wav", import.meta.url).href,
@@ -261,6 +262,10 @@ class MainScene extends Phaser.Scene {
     this.load.image(
       "kibodo_esc",
       new URL("../../images/kibodo/kibodo_esc.png", import.meta.url).href
+    );
+    this.load.image(
+      ATTACK_EFFECT_KEY,
+      new URL("../../images/effect/nomarl_attack_0.png", import.meta.url).href
     );
     this.load.audio(
       "bgm_school",
@@ -1293,39 +1298,45 @@ class MainScene extends Phaser.Scene {
     const travelDistance = Math.min(distance, maxDistance);
     const nx = dx / distance;
     const ny = dy / distance;
-    const finalX = originX + nx * travelDistance;
-    const finalY = originY + ny * travelDistance;
+    const startOffset = Math.min(
+      PLAYER_SPRITE_SIZE * ATTACK_EFFECT_OFFSET_RATIO,
+      PLAYER_SPRITE_SIZE * 0.2
+    );
+    const startX = originX + nx * startOffset;
+    const startY = originY + ny * startOffset;
+    const finalX = startX + nx * travelDistance;
+    const finalY = startY + ny * travelDistance;
     const angle = Math.atan2(ny, nx);
 
-    const orb = this.add
-      .circle(originX, originY, 6, 0x9fdcff, 0.95)
-      .setDepth(9);
-    const trail = this.add
-      .rectangle(originX, originY, 18, 4, 0x9fdcff, 0.35)
-      .setDepth(8)
+    const sprite = this.add
+      .image(startX, startY, ATTACK_EFFECT_KEY)
+      .setOrigin(0, 0.5)
+      .setDepth(9)
       .setRotation(angle);
-    const glow = this.add
-      .circle(originX, originY, 10, 0x6fb6ff, 0.25)
-      .setDepth(7);
+    const source = sprite.texture.getSourceImage() as { width?: number; height?: number } | undefined;
+    const texHeight = source?.height ?? sprite.height;
+    if (texHeight > 0) {
+      const desiredHeight = PLAYER_SPRITE_SIZE * ATTACK_EFFECT_HEIGHT_RATIO;
+      const scale = desiredHeight / texHeight;
+      sprite.setScale(scale);
+    }
 
     const duration = Math.max(160, travelDistance * 0.8);
     const tween = this.tweens.add({
-      targets: [orb, trail, glow],
+      targets: sprite,
       x: finalX,
       y: finalY,
       duration,
       ease: "Sine.Out",
       onComplete: () => {
-        orb.destroy();
-        trail.destroy();
-        glow.destroy();
+        sprite.destroy();
         if (attackId) {
           this.attackEffects.delete(attackId);
         }
       }
     });
     if (attackId) {
-      this.attackEffects.set(attackId, { orb, trail, glow, tween });
+      this.attackEffects.set(attackId, { sprite, tween });
     }
   }
 
@@ -1336,13 +1347,9 @@ class MainScene extends Phaser.Scene {
     }
     effect.tween.stop();
     if (typeof x === "number" && typeof y === "number") {
-      effect.orb.setPosition(x, y);
-      effect.trail.setPosition(x, y);
-      effect.glow.setPosition(x, y);
+      effect.sprite.setPosition(x, y);
     }
-    effect.orb.destroy();
-    effect.trail.destroy();
-    effect.glow.destroy();
+    effect.sprite.destroy();
     this.attackEffects.delete(attackId);
   }
 
