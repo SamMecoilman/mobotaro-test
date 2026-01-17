@@ -1,0 +1,891 @@
+﻿diff --git a/client/index.html b/client/index.html
+index cbb3761..c45db0e 100644
+--- a/client/index.html
++++ b/client/index.html
+@@ -5,6 +5,16 @@
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+     <title>Mobotaro Test</title>
+     <style>
++      @font-face {
++        font-family: "dogica";
++        src: url("/fonts/dogica.ttf") format("truetype");
++        font-display: swap;
++      }
++      @font-face {
++        font-family: "Retro Gaming";
++        src: url("/fonts/Retro%20Gaming.ttf") format("truetype");
++        font-display: swap;
++      }
+       html,
+       body {
+         margin: 0;
+diff --git a/client/src/main.ts b/client/src/main.ts
+index b63d31e..2c25a06 100644
+--- a/client/src/main.ts
++++ b/client/src/main.ts
+@@ -20,6 +20,14 @@ type PlayerState = {
+   attackSpeed?: number;
+   luck?: number;
+   range?: number;
++  gold?: number;
++};
++
++type CoinState = {
++  id: string;
++  x: number;
++  y: number;
++  amount: number;
+ };
+ 
+ type EnemyState = {
+@@ -34,6 +42,7 @@ type EnemyState = {
+ type RoomState = {
+   players: Map<string, PlayerState>;
+   enemies: Map<string, EnemyState>;
++  coins: Map<string, CoinState>;
+   tick: number;
+ };
+ 
+@@ -65,12 +74,15 @@ const MAX_ACTIVE_BOMBS = 8;
+ const BOMB_Y_OFFSET = -50;
+ const BGM_VOLUME_DEFAULT = 0.5;
+ const SE_VOLUME_DEFAULT = 0.5;
++const MAP_SCALE = 4;
+ const ATTACK_EFFECT_KEY = "attack_effect";
+ const ATTACK_EFFECT_HEIGHT_RATIO = 0.6;
+ const ATTACK_EFFECT_OFFSET_RATIO = 0.2;
+ const ATTACK_BASE_RANGE = 140;
+ const INV_PANEL_KEY = "inventory_panel";
+ const SKILL_PANEL_KEY = "skill_panel";
++const COIN_ANIM_KEY = "coin_spin";
++const COIN_FRAME_RATE = 12;
+ const PC_UI_DEPTH = 35;
+ const PC_UI_MARGIN = 16;
+ const PC_UI_DEBUG = true;
+@@ -78,6 +90,7 @@ const PC_PANEL_TWEEN_MS = 240;
+ const PC_SLOT_SNAP_RADIUS = 24;
+ const DEBUG_PC_RESIZE = false;
+ const DEBUG_PC_UI_LAYOUT = false;
++const DEBUG_PC_SLOT_GHOST = false;
+ const DEBUG_PC_UI_CALIB = false;
+ const INV_HIT_SCALE = 0.82;
+ const SKILL_HIT_SCALE = 0.86;
+@@ -86,10 +99,24 @@ const MAIN_PANEL_XP_MASK_KEY = "main_panel_xp_mask";
+ const MAIN_PANEL_HP_MASK_KEY = "main_panel_hp_mask";
+ const MAIN_PANEL_SP_MASK_KEY = "main_panel_sp_mask";
+ const MAIN_PANEL_DEPTH = 28;
+-const MAIN_PANEL_SCALE = 0.45;
++const MAIN_PANEL_SCALE = 0.5;
+ const DEBUG_MAINPANEL_MASK = false;
+ const HP_MASK_STEPS = 0;
+ const DEBUG_HP_DIVERGENCE = false;
++const MAIN_PANEL_TEXT_SIZE = 10;
++const MAIN_PANEL_TEXT_COLOR = "#ffffff";
++const MAIN_PANEL_TEXT_SHADOW = "#000000";
++const MAIN_PANEL_TEXT_SHADOW_ALPHA = 0.6;
++const MAIN_PANEL_LEVEL_TEXT_COLOR = "rgb(255,240,173)";
++const MAIN_PANEL_LEVEL_TEXT_SIZE = 24;
++const MAIN_PANEL_HP_TEXT_RECT = { x: 259, y: 221, w: 347, h: 32 };
++const MAIN_PANEL_SP_TEXT_RECT = { x: 261, y: 298, w: 342, h: 27 };
++const MAIN_PANEL_XP_TEXT_RECT = { x: 170, y: 186, w: 435, h: 11 };
++const MAIN_PANEL_LEVEL_TEXT_RECT = { x: 186, y: 52, w: 300, h: 32 };
++const MAIN_PANEL_GOLD_TEXT_RECT = { x: 260, y: 523, w: 340, h: 24 };
++const MAIN_PANEL_HP_MASK_RECT = { x: 259, y: 219, w: 347, h: 32 };
++const MAIN_PANEL_TEXT_RIGHT_PAD = 3;
++const MAIN_PANEL_TEXT_NUDGE_Y = -1;
+ const INV_GRID = {
+   cols: 4,
+   rows: 4,
+@@ -126,6 +153,8 @@ const DAMAGE_SE_PATHS = [
+   new URL("../../mob/damage/voice3.wav", import.meta.url).href
+ ];
+ const DAMAGE_SE_KEYS = DAMAGE_SE_PATHS.map((_, index) => `se_damage_${index + 1}`);
++const COIN_PICKUP_SE_KEY = "se_coin_pickup";
++const COIN_PICKUP_SE_PATH = "audio/se/縺企≡繧定誠縺ｨ縺・.mp3";
+ const DEATH_SE_PATH = new URL("../../audio/se/boobm.wav", import.meta.url).href;
+ const DEATH_SE_KEY = "se_death";
+ const DEATH_SE_SELF_BASE = 0.7;
+@@ -134,6 +163,7 @@ const PC_HINT_ICON_SCALE = 1.1;
+ const PC_ACTION_ROW_HEIGHT_MULT = 1.25;
+ const ATTACK_COOLDOWN_MS = 500;
+ const PLAYER_SPRITE_SIZE = 100;
++const COIN_DISPLAY_SIZE = PLAYER_SPRITE_SIZE * 0.5;
+ const mobtaroFrameEntries = Object.entries(
+   import.meta.glob("../../images/mobtaro_sprite/*.png", {
+     eager: true,
+@@ -189,6 +219,28 @@ const bombFrameKeys = bombSortedFrames.map((entry) => {
+   return `bomb_${number.toString().padStart(2, "0")}`;
+ });
+ const bombFrameUrls = bombSortedFrames.map((entry) => entry[1]);
++const coinFrameEntries = Object.entries(
++  import.meta.glob("../../images/coin/*.png", {
++    eager: true,
++    import: "default"
++  })
++) as Array<[string, string]>;
++const coinSortedFrames = [...coinFrameEntries].sort((left, right) => {
++  const leftNumber = extractFrameNumber(left[0]);
++  const rightNumber = extractFrameNumber(right[0]);
++  if (leftNumber !== rightNumber) {
++    return leftNumber - rightNumber;
++  }
++  return left[0].localeCompare(right[0]);
++});
++const coinFrameKeys = coinSortedFrames.map((entry, index) => {
++  const number = extractFrameNumber(entry[0]);
++  if (Number.isFinite(number)) {
++    return `coin_${number.toString().padStart(2, "0")}`;
++  }
++  return `coin_${index}`;
++});
++const coinFrameUrls = coinSortedFrames.map((entry) => entry[1]);
+ 
+ type TapStart = {
+   x: number;
+@@ -211,6 +263,7 @@ class MainScene extends Phaser.Scene {
+   private playerSprites = new Map<string, Phaser.GameObjects.Sprite>();
+   private enemySprites = new Map<string, Phaser.GameObjects.Rectangle>();
+   private enemyHpTexts = new Map<string, Phaser.GameObjects.Text>();
++  private coinSprites = new Map<string, Phaser.GameObjects.Sprite>();
+   private statusText?: Phaser.GameObjects.Text;
+   private selfSprite?: Phaser.GameObjects.Sprite;
+   private selfIsDead = false;
+@@ -257,6 +310,21 @@ class MainScene extends Phaser.Scene {
+   private mainPanelXpMask?: Phaser.GameObjects.Image;
+   private mainPanelHpMask?: Phaser.GameObjects.Image;
+   private mainPanelSpMask?: Phaser.GameObjects.Image;
++  private mainPanelHpText?: Phaser.GameObjects.Text;
++  private mainPanelHpTextShadow?: Phaser.GameObjects.Text;
++  private mainPanelHpTextOutlineExtras: Phaser.GameObjects.Text[] = [];
++  private mainPanelSpText?: Phaser.GameObjects.Text;
++  private mainPanelSpTextShadow?: Phaser.GameObjects.Text;
++  private mainPanelSpTextOutlineExtras: Phaser.GameObjects.Text[] = [];
++  private mainPanelXpText?: Phaser.GameObjects.Text;
++  private mainPanelXpTextShadow?: Phaser.GameObjects.Text;
++  private mainPanelXpTextOutlineExtras: Phaser.GameObjects.Text[] = [];
++  private mainPanelLevelText?: Phaser.GameObjects.Text;
++  private mainPanelLevelTextShadow?: Phaser.GameObjects.Text;
++  private mainPanelGoldText?: Phaser.GameObjects.Text;
++  private mainPanelGoldTextShadow?: Phaser.GameObjects.Text;
++  private mainPanelGoldTextOutlineExtras: Phaser.GameObjects.Text[] = [];
++  private lastGold?: number;
+   private mainPanelZone?: Phaser.GameObjects.Zone;
+   private mainPanelXpRatio = 0;
+   private mainPanelHpRatio = 1;
+@@ -384,6 +452,7 @@ class MainScene extends Phaser.Scene {
+     DAMAGE_SE_PATHS.forEach((path, index) => {
+       this.load.audio(DAMAGE_SE_KEYS[index], path);
+     });
++    this.load.audio(COIN_PICKUP_SE_KEY, COIN_PICKUP_SE_PATH);
+     if (DEATH_SE_PATH) {
+       this.load.audio(DEATH_SE_KEY, DEATH_SE_PATH);
+     }
+@@ -396,6 +465,9 @@ class MainScene extends Phaser.Scene {
+     bombFrameUrls.forEach((url, index) => {
+       this.load.image(bombFrameKeys[index], url);
+     });
++    coinFrameUrls.forEach((url, index) => {
++      this.load.image(coinFrameKeys[index], url);
++    });
+   }
+ 
+   create() {
+@@ -407,13 +479,19 @@ class MainScene extends Phaser.Scene {
+     const background = this.add
+       .image(0, 0, "background")
+       .setOrigin(0, 0)
+-      .setScale(4);
++      .setScale(MAP_SCALE);
++    const mapWidth = background.width * MAP_SCALE;
++    const mapHeight = background.height * MAP_SCALE;
+     this.cameras.main.setBounds(
+       0,
+       0,
+-      background.width * 4,
+-      background.height * 4
++      mapWidth,
++      mapHeight
+     );
++    this.applyViewportScale(this.scale.width, this.scale.height);
++    this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
++      this.applyViewportScale(gameSize.width, gameSize.height);
++    });
+ 
+     this.statusText = this.add
+       .text(this.scale.width / 2, 8, "connecting...", {
+@@ -449,6 +527,14 @@ class MainScene extends Phaser.Scene {
+         repeat: 0
+       });
+     }
++    if (coinFrameKeys.length > 0 && !this.anims.exists(COIN_ANIM_KEY)) {
++      this.anims.create({
++        key: COIN_ANIM_KEY,
++        frames: coinFrameKeys.map((key) => ({ key })),
++        frameRate: COIN_FRAME_RATE,
++        repeat: -1
++      });
++    }
+ 
+     const isMobile = shouldShowVirtualStick();
+     document.body.classList.toggle("is-mobile", isMobile);
+@@ -816,6 +902,31 @@ class MainScene extends Phaser.Scene {
+       }
+     });
+ 
++    this.room.state.coins.onAdd((coin, id) => {
++      if (coinFrameKeys.length === 0) {
++        return;
++      }
++      const sprite = this.add
++        .sprite(coin.x, coin.y, coinFrameKeys[0])
++        .setDisplaySize(COIN_DISPLAY_SIZE, COIN_DISPLAY_SIZE)
++        .setDepth(5);
++      if (this.anims.exists(COIN_ANIM_KEY)) {
++        sprite.play(COIN_ANIM_KEY);
++      }
++      this.coinSprites.set(id, sprite);
++      coin.onChange(() => {
++        sprite.setPosition(coin.x, coin.y);
++      });
++    });
++
++    this.room.state.coins.onRemove((_coin, id) => {
++      const sprite = this.coinSprites.get(id);
++      if (sprite) {
++        sprite.destroy();
++        this.coinSprites.delete(id);
++      }
++    });
++
+     this.room.state.onChange(() => {
+       this.statusText?.setText(`connected | tick ${this.room?.state.tick ?? 0}`);
+     });
+@@ -1449,6 +1560,186 @@ class MainScene extends Phaser.Scene {
+       .setDepth(MAIN_PANEL_DEPTH + 1)
+       .setScale(MAIN_PANEL_SCALE);
+ 
++    const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
++      fontFamily: "dogica",
++      fontSize: `${MAIN_PANEL_TEXT_SIZE}px`,
++      color: MAIN_PANEL_TEXT_COLOR
++    };
++    const outlineStyle: Phaser.Types.GameObjects.Text.TextStyle = {
++      fontFamily: "dogica",
++      fontSize: `${MAIN_PANEL_TEXT_SIZE}px`,
++      color: MAIN_PANEL_TEXT_SHADOW
++    };
++    this.mainPanelHpTextShadow = this.add
++      .text(0, 0, "0/0", outlineStyle)
++      .setOrigin(0.5, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 3)
++      .setResolution(1)
++      .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA);
++    this.mainPanelHpTextOutlineExtras = [
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA)
++    ];
++    this.mainPanelHpText = this.add
++      .text(0, 0, "0/0", textStyle)
++      .setOrigin(0.5, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 4)
++      .setResolution(1)
++      .setShadow(0, 0, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++    this.mainPanelSpTextShadow = this.add
++      .text(0, 0, "0/0", outlineStyle)
++      .setOrigin(0.5, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 3)
++      .setResolution(1)
++      .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA);
++    this.mainPanelSpTextOutlineExtras = [
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(0.5, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA)
++    ];
++    this.mainPanelSpText = this.add
++      .text(0, 0, "0/0", textStyle)
++      .setOrigin(0.5, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 4)
++      .setResolution(1)
++      .setShadow(0, 0, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++
++    this.mainPanelXpTextShadow = this.add
++      .text(0, 0, "0/0", outlineStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 3)
++      .setResolution(1)
++      .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA);
++    this.mainPanelXpTextOutlineExtras = [
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0/0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA)
++    ];
++    this.mainPanelXpText = this.add
++      .text(0, 0, "0/0", textStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 4)
++      .setResolution(1)
++      .setShadow(0, 0, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++    const levelTextStyle: Phaser.Types.GameObjects.Text.TextStyle = {
++      fontFamily: "Retro Gaming",
++      fontSize: `${MAIN_PANEL_LEVEL_TEXT_SIZE}px`,
++      color: MAIN_PANEL_LEVEL_TEXT_COLOR
++    };
++    this.mainPanelLevelTextShadow = this.add
++      .text(0, 0, "1", levelTextStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 3)
++      .setResolution(1)
++      .setShadow(1, 1, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++    this.mainPanelLevelText = this.add
++      .text(0, 0, "1", levelTextStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 4)
++      .setResolution(1)
++      .setShadow(1, 1, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++
++    this.mainPanelGoldTextShadow = this.add
++      .text(0, 0, "0", outlineStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 3)
++      .setResolution(1)
++      .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA);
++    this.mainPanelGoldTextOutlineExtras = [
++      this.add
++        .text(0, 0, "0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA),
++      this.add
++        .text(0, 0, "0", outlineStyle)
++        .setOrigin(1, 0.5)
++        .setScrollFactor(0)
++        .setDepth(MAIN_PANEL_DEPTH + 3)
++        .setResolution(1)
++        .setAlpha(MAIN_PANEL_TEXT_SHADOW_ALPHA)
++    ];
++    this.mainPanelGoldText = this.add
++      .text(0, 0, "0", textStyle)
++      .setOrigin(1, 0.5)
++      .setScrollFactor(0)
++      .setDepth(MAIN_PANEL_DEPTH + 4)
++      .setResolution(1)
++      .setShadow(0, 0, MAIN_PANEL_TEXT_SHADOW, 0, true, false);
++
+     this.mainPanelZone = this.add
+       .zone(0, 0, this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight)
+       .setOrigin(0, 0)
+@@ -1477,6 +1768,54 @@ class MainScene extends Phaser.Scene {
+     this.mainPanelZone.setPosition(x, y);
+     this.mainPanelZone.setSize(this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight);
+     this.mainPanelZone.input?.hitArea?.setTo(0, 0, this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight);
++
++    const hpPos = this.getMainPanelTextRightPosition(x, y, MAIN_PANEL_HP_TEXT_RECT);
++    const spPos = this.getMainPanelTextRightPosition(x, y, MAIN_PANEL_SP_TEXT_RECT);
++    const xpPos = this.getMainPanelTextRightPosition(x, y, MAIN_PANEL_XP_TEXT_RECT);
++    const levelPos = this.getMainPanelTextRightPosition(x, y, MAIN_PANEL_LEVEL_TEXT_RECT);
++    const goldPos = this.getMainPanelTextRightPosition(x, y, MAIN_PANEL_GOLD_TEXT_RECT);
++    this.mainPanelHpTextShadow?.setOrigin(1, 0.5).setPosition(hpPos.x - 1, hpPos.y);
++    if (this.mainPanelHpTextOutlineExtras.length === 3) {
++      this.mainPanelHpTextOutlineExtras[0]
++        .setOrigin(1, 0.5)
++        .setPosition(hpPos.x - 1, hpPos.y);
++      this.mainPanelHpTextOutlineExtras[1]
++        .setOrigin(1, 0.5)
++        .setPosition(hpPos.x, hpPos.y - 1);
++      this.mainPanelHpTextOutlineExtras[2]
++        .setOrigin(1, 0.5)
++        .setPosition(hpPos.x, hpPos.y + 1);
++    }
++    this.mainPanelHpText?.setOrigin(1, 0.5).setPosition(hpPos.x, hpPos.y);
++    this.mainPanelSpTextShadow?.setOrigin(1, 0.5).setPosition(spPos.x - 1, spPos.y);
++    if (this.mainPanelSpTextOutlineExtras.length === 3) {
++      this.mainPanelSpTextOutlineExtras[0]
++        .setOrigin(1, 0.5)
++        .setPosition(spPos.x - 1, spPos.y);
++      this.mainPanelSpTextOutlineExtras[1]
++        .setOrigin(1, 0.5)
++        .setPosition(spPos.x, spPos.y - 1);
++      this.mainPanelSpTextOutlineExtras[2]
++        .setOrigin(1, 0.5)
++        .setPosition(spPos.x, spPos.y + 1);
++    }
++    this.mainPanelSpText?.setOrigin(1, 0.5).setPosition(spPos.x, spPos.y);
++    this.mainPanelXpTextShadow?.setPosition(xpPos.x - 1, xpPos.y);
++    if (this.mainPanelXpTextOutlineExtras.length === 3) {
++      this.mainPanelXpTextOutlineExtras[0].setPosition(xpPos.x + 1, xpPos.y);
++      this.mainPanelXpTextOutlineExtras[1].setPosition(xpPos.x, xpPos.y - 1);
++      this.mainPanelXpTextOutlineExtras[2].setPosition(xpPos.x, xpPos.y + 1);
++    }
++    this.mainPanelXpText?.setPosition(xpPos.x, xpPos.y);
++    this.mainPanelLevelTextShadow?.setPosition(levelPos.x + 1, levelPos.y + 1);
++    this.mainPanelLevelText?.setPosition(levelPos.x, levelPos.y);
++    this.mainPanelGoldTextShadow?.setPosition(goldPos.x - 1, goldPos.y);
++    if (this.mainPanelGoldTextOutlineExtras.length === 3) {
++      this.mainPanelGoldTextOutlineExtras[0].setPosition(goldPos.x + 1, goldPos.y);
++      this.mainPanelGoldTextOutlineExtras[1].setPosition(goldPos.x, goldPos.y - 1);
++      this.mainPanelGoldTextOutlineExtras[2].setPosition(goldPos.x, goldPos.y + 1);
++    }
++    this.mainPanelGoldText?.setPosition(goldPos.x, goldPos.y);
+   }
+ 
+   private updateMainPanelMasks() {
+@@ -1485,6 +1824,7 @@ class MainScene extends Phaser.Scene {
+     }
+     const width = this.mainPanelBase.width;
+     const height = this.mainPanelBase.height;
++    const hpMaskWidth = this.mainPanelHpMask.width;
+     const xpRatio = clamp(this.mainPanelXpRatio, 0, 1);
+     const hpRawRatio = clamp(this.mainPanelHpRatio, 0, 1);
+     const hpRatio = HP_MASK_STEPS > 0
+@@ -1492,7 +1832,15 @@ class MainScene extends Phaser.Scene {
+       : hpRawRatio;
+     const spRatio = clamp(this.mainPanelSpRatio, 0, 1);
+     this.updateMainPanelMask(this.mainPanelXpMask, width, height, xpRatio, "right");
+-    this.updateMainPanelMask(this.mainPanelHpMask, width, height, hpRatio, "right", "hp");
++    this.updateMainPanelMask(
++      this.mainPanelHpMask,
++      hpMaskWidth,
++      height,
++      hpRatio,
++      "right",
++      "hp",
++      MAIN_PANEL_HP_MASK_RECT
++    );
+     this.updateMainPanelMask(this.mainPanelSpMask, width, height, spRatio, "right");
+     if (DEBUG_MAINPANEL_MASK) {
+       const xpWidth = Math.max(0, (1 - xpRatio) * width);
+@@ -1504,35 +1852,58 @@ class MainScene extends Phaser.Scene {
+     }
+   }
+ 
++  private getMainPanelTextRightPosition(baseX: number, baseY: number, rect: { x: number; y: number; w: number; h: number }) {
++    const x = baseX + (rect.x + rect.w) * MAIN_PANEL_SCALE - MAIN_PANEL_TEXT_RIGHT_PAD;
++    const y = baseY + (rect.y + rect.h * 0.5) * MAIN_PANEL_SCALE + MAIN_PANEL_TEXT_NUDGE_Y;
++    return { x: Math.round(x), y: Math.round(y) };
++  }
++
+   private updateMainPanelMask(
+     mask: Phaser.GameObjects.Image,
+     width: number,
+     height: number,
+     ratio: number,
+     direction: "left" | "right",
+-    label?: string
++    label?: string,
++    rect?: { x: number; y: number; w: number; h: number }
+   ) {
+-    const maskWidth = Math.max(0, Math.min(width, Math.round((1 - ratio) * width)));
++    const baseX = rect?.x ?? 0;
++    const baseY = rect?.y ?? 0;
++    const baseW = rect?.w ?? width;
++    const baseH = rect?.h ?? height;
++    const maskWidth =
++      label === "hp"
++        ? Math.max(
++            0,
++            Math.min(
++              baseW,
++              baseW -
++                (ratio <= 0
++                  ? 0
++                  : Math.max(1, Math.round(ratio * baseW)))
++            )
++          )
++        : Math.max(0, Math.min(baseW, Math.round((1 - ratio) * baseW)));
+     if (maskWidth <= 0) {
+       mask.setVisible(false);
+-      mask.setCrop(0, 0, 0, height);
++      mask.setCrop(baseX, baseY, 0, baseH);
+       if (DEBUG_MAINPANEL_MASK && label === "hp") {
+         console.log(
+-          `[mask] hp w=0 fullW=${width.toFixed(1)} ratio=${ratio.toFixed(2)}`
++          `[mask] hp w=0 fullW=${baseW.toFixed(1)} ratio=${ratio.toFixed(2)}`
+         );
+       }
+       return;
+     }
+     mask.setVisible(true);
+     if (direction === "left") {
+-      mask.setCrop(0, 0, maskWidth, height);
++      mask.setCrop(baseX, baseY, maskWidth, baseH);
+       return;
+     }
+-    const startX = Math.max(0, width - maskWidth);
+-    mask.setCrop(startX, 0, maskWidth, height);
++    const startX = Math.max(0, baseX + baseW - maskWidth);
++    mask.setCrop(startX, baseY, maskWidth, baseH);
+     if (DEBUG_MAINPANEL_MASK && label === "hp") {
+       console.log(
+-        `[mask] hp fullW=${width.toFixed(1)} maskW=${maskWidth.toFixed(1)} cropX=${startX.toFixed(
++        `[mask] hp fullW=${baseW.toFixed(1)} maskW=${maskWidth.toFixed(1)} cropX=${startX.toFixed(
+           1
+         )} ratio=${ratio.toFixed(2)}`
+       );
+@@ -3009,6 +3380,33 @@ class MainScene extends Phaser.Scene {
+     const xpMax = this.getXpForLevel(level);
+     this.mainPanelXpMax = xpMax;
+     this.mainPanelXpRatio = xpMax > 0 ? clamp(xp / xpMax, 0, 1) : 0;
++    this.mainPanelHpText?.setText(`${this.selfHp}/${this.selfMaxHp}`);
++    this.mainPanelHpTextShadow?.setText(`${this.selfHp}/${this.selfMaxHp}`);
++    this.mainPanelHpTextOutlineExtras.forEach((outline) =>
++      outline.setText(`${this.selfHp}/${this.selfMaxHp}`)
++    );
++    this.mainPanelSpText?.setText(`${sp}/${maxSp}`);
++    this.mainPanelSpTextShadow?.setText(`${sp}/${maxSp}`);
++    this.mainPanelSpTextOutlineExtras.forEach((outline) =>
++      outline.setText(`${sp}/${maxSp}`)
++    );
++    this.mainPanelXpText?.setText(`${xp}/${xpMax}`);
++    this.mainPanelXpTextShadow?.setText(`${xp}/${xpMax}`);
++    this.mainPanelXpTextOutlineExtras.forEach((outline) =>
++      outline.setText(`${xp}/${xpMax}`)
++    );
++    this.mainPanelLevelText?.setText(`${level}`);
++    this.mainPanelLevelTextShadow?.setText(`${level}`);
++    const gold = player.gold ?? 0;
++    if (this.lastGold !== undefined && gold > this.lastGold) {
++      this.playSe(COIN_PICKUP_SE_KEY, 0.9);
++    }
++    this.lastGold = gold;
++    this.mainPanelGoldText?.setText(`${gold}G`);
++    this.mainPanelGoldTextShadow?.setText(`${gold}G`);
++    this.mainPanelGoldTextOutlineExtras.forEach((outline) =>
++      outline.setText(`${gold}G`)
++    );
+     this.updateMainPanelMasks();
+ 
+     if (this.selfSprite) {
+@@ -3068,6 +3466,11 @@ class MainScene extends Phaser.Scene {
+     return 100 + (level - 1) * 25;
+   }
+ 
++  private applyViewportScale(width: number, height: number) {
++    const zoom = Math.min(1, width / baseWidth, height / baseHeight);
++    this.cameras.main.setZoom(zoom);
++  }
++
+   private formatHp(hp?: number, maxHp?: number) {
+     const current = hp ?? 0;
+     const max = maxHp ?? 0;
+@@ -3096,6 +3499,26 @@ const shouldShowVirtualStick = () => {
+ };
+ 
+ const isMobileDevice = shouldShowVirtualStick();
++const purgePcRightHud = () => {
++  if (isMobileDevice) {
++    return;
++  }
++  const removed: string[] = [];
++  const hudRight = document.getElementById("hud-right");
++  if (hudRight) {
++    hudRight.remove();
++    removed.push("hud-right");
++  }
++  if (!DEBUG_PC_SLOT_GHOST) {
++    return;
++  }
++  const slotNodes = document.querySelectorAll(
++    '#hud-right .slot, [id*="slot"], [class*="slot"]'
++  );
++  console.log(
++    `[pc-slot-ghost] removed=${removed.join(",") || "none"} slotNodes=${slotNodes.length}`
++  );
++};
+ const baseWidth = 512;
+ const baseHeight = 768;
+ const getViewportSize = () => {
+@@ -3111,6 +3534,10 @@ const initialViewport = getViewportSize();
+ const initialSize = isMobileDevice
+   ? { width: initialViewport.width, height: initialViewport.height }
+   : { width: initialViewport.width, height: initialViewport.height };
++purgePcRightHud();
++if (!isMobileDevice) {
++  requestAnimationFrame(() => purgePcRightHud());
++}
+ const config: Phaser.Types.Core.GameConfig = {
+   type: Phaser.AUTO,
+   parent: "app",
+diff --git a/images/LOGO/LOGO.png b/images/LOGO/LOGO.png
+index 68ee2c0..56b49a7 100644
+Binary files a/images/LOGO/LOGO.png and b/images/LOGO/LOGO.png differ
+diff --git a/images/menue/main_panel_base.png b/images/menue/main_panel_base.png
+index acea48d..d0b2295 100644
+Binary files a/images/menue/main_panel_base.png and b/images/menue/main_panel_base.png differ
+diff --git a/images/menue/main_panel_base_hp_mask.png b/images/menue/main_panel_base_hp_mask.png
+index 4863df3..98e09b8 100644
+Binary files a/images/menue/main_panel_base_hp_mask.png and b/images/menue/main_panel_base_hp_mask.png differ
+diff --git a/images/menue/main_panel_base_sp_mask.png b/images/menue/main_panel_base_sp_mask.png
+index 21fcb8a..e92d1e6 100644
+Binary files a/images/menue/main_panel_base_sp_mask.png and b/images/menue/main_panel_base_sp_mask.png differ
+diff --git a/images/menue/main_panel_base_xp_mask.png b/images/menue/main_panel_base_xp_mask.png
+index b10c41b..99f27b4 100644
+Binary files a/images/menue/main_panel_base_xp_mask.png and b/images/menue/main_panel_base_xp_mask.png differ
+diff --git a/server/src/SurvivorRoom.ts b/server/src/SurvivorRoom.ts
+index c0674b7..22c3d60 100644
+--- a/server/src/SurvivorRoom.ts
++++ b/server/src/SurvivorRoom.ts
+@@ -1,5 +1,8 @@
+ import { Room, type Client } from "@colyseus/core";
+-import { Enemy, Player, SurvivorState } from "./SurvivorState.js";
++import fs from "node:fs";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import { Coin, Enemy, Player, SurvivorState } from "./SurvivorState.js";
+ 
+ type MoveMessage = {
+   x: number;
+@@ -25,6 +28,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+   private playerContactCooldown = new Map<string, number>();
+   private enemyContactCooldown = new Map<string, number>();
+   private playerDeadUntil = new Map<string, number>();
++  private coinIdCounter = 0;
+ 
+   onCreate() {
+     this.setState(new SurvivorState());
+@@ -211,7 +215,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+         enemy.x,
+         enemy.y
+       );
+-      if (distance > radius) {
++      if (distance > radius + HIT_THICKNESS) {
+         continue;
+       }
+       if (!closest || distanceAlong < closest.distanceAlong) {
+@@ -232,6 +236,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+               targetId: enemy.id
+             });
+             if (enemy.hp <= 0) {
++              this.spawnCoin(enemy.x, enemy.y, randomRange(COIN_MIN_DROP, COIN_MAX_DROP));
+               this.state.enemies.delete(enemy.id);
+               attacker.xp += ENEMY_XP_REWARD;
+               this.applyLevelUps(attacker);
+@@ -270,7 +275,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+           targetPlayer.x,
+           targetPlayer.y
+         );
+-        if (distance > radius) {
++        if (distance > radius + HIT_THICKNESS) {
+           continue;
+         }
+         if (!closest || distanceAlong < closest.distanceAlong) {
+@@ -291,6 +296,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+               targetId: targetPlayer.id
+             });
+               if (targetPlayer.hp <= 0) {
++                this.dropGoldOnDeath(targetPlayer);
+                 targetPlayer.isDead = true;
+                 targetPlayer.vx = 0;
+                 targetPlayer.vy = 0;
+@@ -359,6 +365,26 @@ export class SurvivorRoom extends Room<SurvivorState> {
+       );
+     }
+ 
++    if (this.state.coins.size > 0) {
++      const pickupRadiusSq = COIN_PICKUP_RADIUS * COIN_PICKUP_RADIUS;
++      const picked: string[] = [];
++      for (const [coinId, coin] of this.state.coins) {
++        for (const player of this.state.players.values()) {
++          if (player.isDead) {
++            continue;
++          }
++          const dx = player.x - coin.x;
++          const dy = player.y - coin.y;
++          if (dx * dx + dy * dy <= pickupRadiusSq) {
++            player.gold = (player.gold ?? 0) + coin.amount;
++            picked.push(coinId);
++            break;
++          }
++        }
++      }
++      picked.forEach((coinId) => this.state.coins.delete(coinId));
++    }
++
+     const alivePlayers = Array.from(this.state.players.values()).filter(
+       (player) => !player.isDead
+     );
+@@ -523,6 +549,7 @@ export class SurvivorRoom extends Room<SurvivorState> {
+       targetId: player.id
+     });
+     if (player.hp <= 0) {
++      this.dropGoldOnDeath(player);
+       player.isDead = true;
+       player.vx = 0;
+       player.vy = 0;
+@@ -542,6 +569,28 @@ export class SurvivorRoom extends Room<SurvivorState> {
+       this.playerDeadUntil.set(player.id, now + PLAYER_RESPAWN_MS);
+     }
+   }
++
++  private spawnCoin(x: number, y: number, amount: number) {
++    if (amount <= 0) {
++      return;
++    }
++    const coin = new Coin();
++    this.coinIdCounter += 1;
++    coin.id = `coin-${Date.now()}-${this.coinIdCounter}`;
++    coin.x = x + randomRange(-6, 6);
++    coin.y = y + randomRange(-6, 6);
++    coin.amount = amount;
++    this.state.coins.set(coin.id, coin);
++  }
++
++  private dropGoldOnDeath(player: Player) {
++    const amount = Math.floor((player.gold ?? 0) * 0.5);
++    if (amount <= 0) {
++      return;
++    }
++    player.gold = Math.max(0, player.gold - amount);
++    this.spawnCoin(player.x, player.y, amount);
++  }
+ }
+ 
+ const randomRange = (min: number, max: number) =>
+@@ -618,10 +667,46 @@ const getCritChance = (luck: number) => {
+   return clamp(chance, 0, TUNING.maxCritChance);
+ };
+ 
+-const MAP_WIDTH = 1536 * 4;
+-const MAP_HEIGHT = 1024 * 4;
++const readPngDimensions = (filePath: string) => {
++  const data = fs.readFileSync(filePath);
++  if (data.length < 24) {
++    throw new Error(`[map] PNG too small: ${filePath}`);
++  }
++  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
++  if (!data.subarray(0, 8).equals(signature)) {
++    throw new Error(`[map] Invalid PNG signature: ${filePath}`);
++  }
++  const chunkType = data.subarray(12, 16).toString("ascii");
++  if (chunkType !== "IHDR") {
++    throw new Error(`[map] Missing IHDR chunk: ${filePath}`);
++  }
++  const width = data.readUInt32BE(16);
++  const height = data.readUInt32BE(20);
++  if (width <= 0 || height <= 0) {
++    throw new Error(`[map] Invalid PNG dimensions: ${filePath}`);
++  }
++  return { width, height };
++};
++
++const MAP_SCALE = 4;
++const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
++const MAP_IMAGE_PATH = path.resolve(
++  MODULE_DIR,
++  "..",
++  "..",
++  "map",
++  "school2.png"
++);
++const { width: MAP_TEXTURE_WIDTH, height: MAP_TEXTURE_HEIGHT } =
++  readPngDimensions(MAP_IMAGE_PATH);
++const MAP_WIDTH = MAP_TEXTURE_WIDTH * MAP_SCALE;
++const MAP_HEIGHT = MAP_TEXTURE_HEIGHT * MAP_SCALE;
+ const ATTACK_BASE_RANGE = 140;
+ const ATTACK_HIT_RADIUS = 16;
++const HIT_THICKNESS = 18;
++const COIN_MIN_DROP = 1;
++const COIN_MAX_DROP = 5;
++const COIN_PICKUP_RADIUS = 32;
+ const ENEMY_CONTACT_DAMAGE = 8;
+ const ENEMY_MOVE_SPEED = 120;
+ const ENEMY_CONTACT_RADIUS = 32;
+diff --git a/server/src/SurvivorState.ts b/server/src/SurvivorState.ts
+index e127464..2d92e94 100644
+--- a/server/src/SurvivorState.ts
++++ b/server/src/SurvivorState.ts
+@@ -21,6 +21,14 @@ export class Player extends Schema {
+   @type("number") attackSpeed = 1;
+   @type("number") luck = 1;
+   @type("number") range = 1;
++  @type("number") gold = 0;
++}
++
++export class Coin extends Schema {
++  @type("string") id = "";
++  @type("number") x = 0;
++  @type("number") y = 0;
++  @type("number") amount = 0;
+ }
+ 
+ export class Enemy extends Schema {
+@@ -35,6 +43,7 @@ export class Enemy extends Schema {
+ export class SurvivorState extends Schema {
+   @type({ map: Player }) players = new MapSchema<Player>();
+   @type({ map: Enemy }) enemies = new MapSchema<Enemy>();
++  @type({ map: Coin }) coins = new MapSchema<Coin>();
+   @type("number") tick = 0;
+   @type([ "string" ]) messages = new ArraySchema<string>();
+ }

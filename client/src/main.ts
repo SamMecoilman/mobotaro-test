@@ -126,14 +126,17 @@ const DAMAGE_SE_PATHS = [
   new URL("../../mob/damage/voice3.wav", import.meta.url).href
 ];
 const DAMAGE_SE_KEYS = DAMAGE_SE_PATHS.map((_, index) => `se_damage_${index + 1}`);
-const DEATH_SE_PATH = new URL("../../audio/se/boobm.wav", import.meta.url).href;
+const DEATH_SE_PATH = new URL("/audio/se/boobm.wav", import.meta.url).href;
 const DEATH_SE_KEY = "se_death";
+const DROP_COIN_SE_PATH = new URL("/audio/se/drop_coin.mp3", import.meta.url).href;
+const DROP_COIN_SE_KEY = "se_drop_coin";
 const DEATH_SE_SELF_BASE = 0.7;
 const DEATH_SE_OTHER_BASE = 0.42;
 const PC_HINT_ICON_SCALE = 1.1;
 const PC_ACTION_ROW_HEIGHT_MULT = 1.25;
 const ATTACK_COOLDOWN_MS = 500;
 const PLAYER_SPRITE_SIZE = 100;
+const MAP_SCALE = 1;
 const mobtaroFrameEntries = Object.entries(
   import.meta.glob("../../images/mobtaro_sprite/*.png", {
     eager: true,
@@ -336,7 +339,7 @@ class MainScene extends Phaser.Scene {
   preload() {
     this.load.image(
       "background",
-      new URL("../../map/school2.png", import.meta.url).href
+      new URL("../../map/schoolMap/ComfyUI_00019_.png", import.meta.url).href
     );
     this.load.image(
       "kibodo_c",
@@ -376,7 +379,7 @@ class MainScene extends Phaser.Scene {
     );
     this.load.audio(
       "bgm_school",
-      new URL("../../audio/school/Pixel Playground Afternoon.wav", import.meta.url).href
+      new URL("/audio/bgm/Pixel Study Hall.wav", import.meta.url).href
     );
     ATTACK_SE_PATHS.forEach((path, index) => {
       this.load.audio(ATTACK_SE_KEYS[index], path);
@@ -386,6 +389,9 @@ class MainScene extends Phaser.Scene {
     });
     if (DEATH_SE_PATH) {
       this.load.audio(DEATH_SE_KEY, DEATH_SE_PATH);
+    }
+    if (DROP_COIN_SE_PATH) {
+      this.load.audio(DROP_COIN_SE_KEY, DROP_COIN_SE_PATH);
     }
     mobtaroFrameUrls.forEach((url, index) => {
       this.load.image(mobtaroFrameKeys[index], url);
@@ -407,12 +413,12 @@ class MainScene extends Phaser.Scene {
     const background = this.add
       .image(0, 0, "background")
       .setOrigin(0, 0)
-      .setScale(4);
+      .setScale(MAP_SCALE);
     this.cameras.main.setBounds(
       0,
       0,
-      background.width * 4,
-      background.height * 4
+      background.width * MAP_SCALE,
+      background.height * MAP_SCALE
     );
 
     this.statusText = this.add
