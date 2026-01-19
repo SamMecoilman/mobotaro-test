@@ -63,8 +63,8 @@ const PROFILE_Y_OFFSET = -6;
 const BOMB_FPS = 24;
 const MAX_ACTIVE_BOMBS = 8;
 const BOMB_Y_OFFSET = -50;
-const BGM_VOLUME_DEFAULT = 0.5;
-const SE_VOLUME_DEFAULT = 0.5;
+const BGM_VOLUME_DEFAULT = 0;
+const SE_VOLUME_DEFAULT = 0;
 const ATTACK_EFFECT_KEY = "attack_effect";
 const ATTACK_EFFECT_HEIGHT_RATIO = 0.6;
 const ATTACK_EFFECT_OFFSET_RATIO = 0.2;
@@ -81,6 +81,10 @@ const DEBUG_PC_UI_LAYOUT = false;
 const DEBUG_PC_UI_CALIB = false;
 const INV_HIT_SCALE = 0.82;
 const SKILL_HIT_SCALE = 0.86;
+const UI_BASE_WIDTH = 1920;
+const UI_BASE_HEIGHT = 1080;
+const UI_MIN_SCALE = 0.6;
+const UI_MAX_SCALE = 1;
 const MAIN_PANEL_BASE_KEY = "main_panel_base";
 const MAIN_PANEL_XP_MASK_KEY = "main_panel_xp_mask";
 const MAIN_PANEL_HP_MASK_KEY = "main_panel_hp_mask";
@@ -90,6 +94,36 @@ const MAIN_PANEL_SCALE = 0.45;
 const DEBUG_MAINPANEL_MASK = false;
 const HP_MASK_STEPS = 0;
 const DEBUG_HP_DIVERGENCE = false;
+const DETAIL_PANEL_BG_KEY = "character_view";
+const DETAIL_PANEL_PROFILE_FRAME = {
+  x: 136,
+  y: 172,
+  width: 180,
+  height: 194
+};
+const DETAIL_PANEL_STAT_LABEL_X = 520;
+const DETAIL_PANEL_STAT_VALUE_X = 620;
+const DETAIL_PANEL_STAT_BUTTON_X = 875;
+const DETAIL_PANEL_STAT_BUTTON_WIDTH = 220;
+const DETAIL_PANEL_STAT_BUTTON_HEIGHT = 40;
+const DETAIL_PANEL_STAT_BUTTON_OFFSET_X = -60;
+const DETAIL_PANEL_STAT_BUTTON_OFFSET_Y = -29;
+const DETAIL_PANEL_STAT_ROWS = [
+  { label: "HP", key: "hp", y: 240 },
+  { label: "SP", key: "sp", y: 316 },
+  { label: "ATK", key: "atk", y: 392 },
+  { label: "DEF", key: "def", y: 472 },
+  { label: "LUCK", key: "luck", y: 552 },
+  { label: "MOVE SPD", key: "moveSpeed", y: 626 },
+  { label: "RANGE", key: "range", y: 702 },
+  { label: "ATK SPD", key: "atkSpeed", y: 780 }
+];
+const DETAIL_PANEL_INFO_X = 140;
+const DETAIL_PANEL_INFO_START_Y = 440;
+const DETAIL_PANEL_INFO_LINE_HEIGHT = 28;
+const DETAIL_PANEL_SCALE = 0.8;
+const DETAIL_PANEL_PROFILE_SCALE = 1;
+const DETAIL_PANEL_PROFILE_CENTER_OFFSET_Y = 0;
 const INV_GRID = {
   cols: 4,
   rows: 4,
@@ -279,6 +313,7 @@ class MainScene extends Phaser.Scene {
   private detailLevelText?: Phaser.GameObjects.Text;
   private detailXpText?: Phaser.GameObjects.Text;
   private detailProfileCenter?: { x: number; y: number };
+  private detailProfileFrame?: { width: number; height: number };
   private optionPanel?: Phaser.GameObjects.Container;
   private optionVolumeText?: Phaser.GameObjects.Text;
   private optionSeText?: Phaser.GameObjects.Text;
@@ -331,6 +366,7 @@ class MainScene extends Phaser.Scene {
   private attackEffectCounter = 0;
   private attackEffects = new Map<string, AttackEffectHandle>();
   private selfPlayerRange = 1;
+  private uiScale = 1;
 
   constructor() {
     super("main");
@@ -368,6 +404,10 @@ class MainScene extends Phaser.Scene {
     this.load.image(
       MAIN_PANEL_SP_MASK_KEY,
       new URL("../../images/menue/main_panel_base_sp_mask.png", import.meta.url).href
+    );
+    this.load.image(
+      DETAIL_PANEL_BG_KEY,
+      new URL("../../images/menue/character_view.png", import.meta.url).href
     );
     this.load.image(
       INV_PANEL_KEY,
@@ -409,6 +449,7 @@ class MainScene extends Phaser.Scene {
     this.wasd = this.input.keyboard.addKeys(
       "W,A,S,D"
     ) as MainScene["wasd"];
+    this.uiScale = this.resolveUiScale(this.scale.width, this.scale.height);
 
     const background = this.add
       .image(0, 0, "background")
@@ -483,7 +524,12 @@ class MainScene extends Phaser.Scene {
       this.createPcRightUi();
       this.layoutPcRightUi(this.scale.width, this.scale.height);
       this.scale.on("resize", (gameSize: Phaser.Structs.Size) => {
+        this.uiScale = this.resolveUiScale(gameSize.width, gameSize.height);
+        this.applyPcRightUiScale();
         this.layoutPcRightUi(gameSize.width, gameSize.height);
+        this.layoutMainPanel(gameSize.width, gameSize.height);
+        this.rebuildDetailPanelForResize();
+        this.rebuildOptionPanelForResize();
       });
       this.input.keyboard?.on("keydown-I", () => {
         this.togglePcInventory();
@@ -894,76 +940,77 @@ class MainScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const uiDepth = 30;
     const panelStroke = 0x000000;
+    const uiScale = this.uiScale;
     const labelStyle = {
       color: "#e6e6e6",
-      fontSize: "11px",
+      fontSize: `${Math.round(11 * uiScale)}px`,
       fontFamily: "Times New Roman"
     };
     const valueStyle = {
       color: "#b9b9b9",
-      fontSize: "9px",
+      fontSize: `${Math.round(9 * uiScale)}px`,
       fontFamily: "Times New Roman"
     };
 
-    const barWidth = 96;
-    const barHeight = 6;
+    const barWidth = 96 * uiScale;
+    const barHeight = 6 * uiScale;
     this.mobileHpBarWidth = barWidth;
     this.mobileHpBarHeight = barHeight;
-    const hpX = 12;
-    const hpY = 12;
+    const hpX = 12 * uiScale;
+    const hpY = 12 * uiScale;
     this.mobileHpLabel = this.add
       .text(hpX, hpY, "HP / Lv: 1", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
     this.mobileHpFill = this.add
-      .rectangle(hpX, hpY + 14, barWidth, barHeight, 0x8b1e1e, 0.9)
+      .rectangle(hpX, hpY + 14 * uiScale, barWidth, barHeight, 0x8b1e1e, 0.9)
       .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth);
     this.mobileHpValueText = this.add
-      .text(hpX, hpY + 21, "100 / 100", valueStyle)
+      .text(hpX, hpY + 21 * uiScale, "100 / 100", valueStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
-    const spY = hpY + 30;
+    const spY = hpY + 30 * uiScale;
     this.mobileSpLabel = this.add
       .text(hpX, spY, "SP", labelStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
     this.mobileSpFill = this.add
-      .rectangle(hpX, spY + 14, barWidth, barHeight, 0x1b4a8b, 0.9)
+      .rectangle(hpX, spY + 14 * uiScale, barWidth, barHeight, 0x1b4a8b, 0.9)
       .setOrigin(0, 0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth);
     this.mobileSpValueText = this.add
-      .text(hpX, spY + 21, "100 / 100", valueStyle)
+      .text(hpX, spY + 21 * uiScale, "100 / 100", valueStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
     const guideStyle = {
       color: "#b1b1b1",
-      fontSize: "9px",
+      fontSize: `${Math.round(9 * uiScale)}px`,
       fontFamily: "Times New Roman"
     };
-    const guideStartY = spY + 36;
+    const guideStartY = spY + 36 * uiScale;
     this.mobileGuideTexts = [
       this.add
         .text(hpX, guideStartY, "MOVE: STICK", guideStyle)
         .setDepth(uiDepth)
         .setScrollFactor(0),
       this.add
-        .text(hpX, guideStartY + 12, "ATK: TAP / HOLD", guideStyle)
+        .text(hpX, guideStartY + 12 * uiScale, "ATK: TAP / HOLD", guideStyle)
         .setDepth(uiDepth)
         .setScrollFactor(0)
     ];
     this.mobileGoldText = this.add
-      .text(hpX, guideStartY + 26, "GOLD: 0", guideStyle)
+      .text(hpX, guideStartY + 26 * uiScale, "GOLD: 0", guideStyle)
       .setDepth(uiDepth)
       .setScrollFactor(0);
 
-    const fabRadius = 22;
-    const fabX = width - 28;
-    const fabY = 28;
+    const fabRadius = 22 * uiScale;
+    const fabX = width - 28 * uiScale;
+    const fabY = 28 * uiScale;
     this.mobileFabButton = this.add
       .circle(fabX, fabY, fabRadius, 0x1a1d22, 0.9)
       .setStrokeStyle(2, panelStroke)
@@ -973,15 +1020,15 @@ class MainScene extends Phaser.Scene {
     this.mobileFabLabel = this.add
       .text(fabX, fabY, "+", {
         color: "#ffffff",
-        fontSize: "18px",
+        fontSize: `${Math.round(18 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(uiDepth + 1);
 
-    const menuWidth = 160;
-    const menuHeight = 180;
+    const menuWidth = 160 * uiScale;
+    const menuHeight = 180 * uiScale;
     const menuX = width / 2;
     const menuY = height / 2;
     const menuBg = this.add
@@ -1009,9 +1056,9 @@ class MainScene extends Phaser.Scene {
     ];
 
     const menuItems: Phaser.GameObjects.GameObject[] = [menuBg];
-    const buttonWidth = menuWidth - 24;
-    const buttonHeight = 30;
-    const buttonStartY = menuY - menuHeight / 2 + 20 + buttonHeight / 2;
+    const buttonWidth = menuWidth - 24 * uiScale;
+    const buttonHeight = 30 * uiScale;
+    const buttonStartY = menuY - menuHeight / 2 + 20 * uiScale + buttonHeight / 2;
     menuButtons.forEach((button, index) => {
       const y = buttonStartY + index * (buttonHeight + 8);
       const box = this.add
@@ -1023,7 +1070,7 @@ class MainScene extends Phaser.Scene {
       const label = this.add
         .text(menuX, y, button.label, {
           color: "#e6e6e6",
-          fontSize: "12px",
+          fontSize: `${Math.round(12 * uiScale)}px`,
           fontFamily: "Times New Roman"
         })
         .setOrigin(0.5)
@@ -1052,8 +1099,8 @@ class MainScene extends Phaser.Scene {
       }
     });
 
-    const panelWidth = Math.min(280, width - 40);
-    const panelHeight = Math.min(280, height - 200);
+    const panelWidth = Math.min(280 * uiScale, width - 40 * uiScale);
+    const panelHeight = Math.min(280 * uiScale, height - 200 * uiScale);
     const panelX = width / 2;
     const panelY = height / 2;
 
@@ -1409,6 +1456,7 @@ class MainScene extends Phaser.Scene {
       this.pcSkillContainer.add(this.pcSkillDebugGfx);
       this.updatePcDebugFrame();
     }
+    this.applyPcRightUiScale();
 
     const inventorySource = this.textures.get(INV_PANEL_KEY).getSourceImage() as
       | HTMLImageElement
@@ -1430,30 +1478,31 @@ class MainScene extends Phaser.Scene {
     if (this.mainPanelBase) {
       return;
     }
+    const panelScale = MAIN_PANEL_SCALE * this.uiScale;
     this.mainPanelBase = this.add
       .image(0, 0, MAIN_PANEL_BASE_KEY)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(MAIN_PANEL_DEPTH)
-      .setScale(MAIN_PANEL_SCALE);
+      .setScale(panelScale);
     this.mainPanelXpMask = this.add
       .image(0, 0, MAIN_PANEL_XP_MASK_KEY)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(MAIN_PANEL_DEPTH + 1)
-      .setScale(MAIN_PANEL_SCALE);
+      .setScale(panelScale);
     this.mainPanelHpMask = this.add
       .image(0, 0, MAIN_PANEL_HP_MASK_KEY)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(MAIN_PANEL_DEPTH + 1)
-      .setScale(MAIN_PANEL_SCALE);
+      .setScale(panelScale);
     this.mainPanelSpMask = this.add
       .image(0, 0, MAIN_PANEL_SP_MASK_KEY)
       .setOrigin(0, 0)
       .setScrollFactor(0)
       .setDepth(MAIN_PANEL_DEPTH + 1)
-      .setScale(MAIN_PANEL_SCALE);
+      .setScale(panelScale);
 
     this.mainPanelZone = this.add
       .zone(0, 0, this.mainPanelBase.displayWidth, this.mainPanelBase.displayHeight)
@@ -1474,6 +1523,11 @@ class MainScene extends Phaser.Scene {
     if (!this.mainPanelBase || !this.mainPanelZone) {
       return;
     }
+    const panelScale = MAIN_PANEL_SCALE * this.uiScale;
+    this.mainPanelBase.setScale(panelScale);
+    this.mainPanelXpMask?.setScale(panelScale);
+    this.mainPanelHpMask?.setScale(panelScale);
+    this.mainPanelSpMask?.setScale(panelScale);
     const x = 0;
     const y = 0;
     this.mainPanelBase.setPosition(x, y);
@@ -1554,8 +1608,8 @@ class MainScene extends Phaser.Scene {
     const inventoryX = width - this.pcInventoryPanel.displayWidth - marginX;
     const skillX = width - this.pcSkillPanel.displayWidth - marginX;
     const inventoryOpenY = 0;
-    const inventoryClosedY = -this.pcInventoryPanel.height;
-    const skillOpenY = height - this.pcSkillPanel.height;
+    const inventoryClosedY = -this.pcInventoryPanel.displayHeight;
+    const skillOpenY = height - this.pcSkillPanel.displayHeight;
     const skillClosedY = height;
 
     this.pcInventoryOpenY = inventoryOpenY;
@@ -1572,6 +1626,26 @@ class MainScene extends Phaser.Scene {
     this.pcSkillPanel.setPosition(0, 0);
     this.pcInventoryBgZone?.setPosition(0, 0);
     this.pcSkillBgZone?.setPosition(0, 0);
+    this.pcInventoryBgZone?.setSize(
+      this.pcInventoryPanel.displayWidth,
+      this.pcInventoryPanel.displayHeight
+    );
+    this.pcSkillBgZone?.setSize(
+      this.pcSkillPanel.displayWidth,
+      this.pcSkillPanel.displayHeight
+    );
+    this.pcInventoryBgZone?.input?.hitArea?.setTo(
+      0,
+      0,
+      this.pcInventoryPanel.displayWidth,
+      this.pcInventoryPanel.displayHeight
+    );
+    this.pcSkillBgZone?.input?.hitArea?.setTo(
+      0,
+      0,
+      this.pcSkillPanel.displayWidth,
+      this.pcSkillPanel.displayHeight
+    );
     this.updatePcPanelInteractivity();
     this.updatePcDebugFrame();
     if (DEBUG_PC_UI_LAYOUT) {
@@ -1639,22 +1713,23 @@ class MainScene extends Phaser.Scene {
       zone.on("pointerdown", () => this.handlePcSlotDown(zone));
       zones.push(zone);
     }
-    this.layoutPcSlotGridLocal(grid, zones);
+    this.layoutPcSlotGridLocal(grid, zones, this.uiScale);
     return zones;
   }
 
   private layoutPcSlotGridLocal(
     grid: typeof INV_GRID,
-    slots: Phaser.GameObjects.Zone[]
+    slots: Phaser.GameObjects.Zone[],
+    scale = 1
   ) {
-    const startX = grid.startX;
-    const startY = grid.startY;
-    const cellW = grid.cellW;
-    const cellH = grid.cellH;
-    const gapX = grid.gapX;
-    const gapY = grid.gapY;
-    const insetX = grid.insetX ?? 0;
-    const insetY = grid.insetY ?? 0;
+    const startX = grid.startX * scale;
+    const startY = grid.startY * scale;
+    const cellW = grid.cellW * scale;
+    const cellH = grid.cellH * scale;
+    const gapX = grid.gapX * scale;
+    const gapY = grid.gapY * scale;
+    const insetX = (grid.insetX ?? 0) * scale;
+    const insetY = (grid.insetY ?? 0) * scale;
     for (let row = 0; row < grid.rows; row += 1) {
       for (let col = 0; col < grid.cols; col += 1) {
         const index = row * grid.cols + col;
@@ -1666,9 +1741,9 @@ class MainScene extends Phaser.Scene {
         const baseY = startY + row * (cellH + gapY);
         const baseW = Math.max(1, cellW - insetX * 2);
         const baseH = Math.max(1, cellH - insetY * 2);
-        const scale = Number(slot.getData("hitScale") ?? 1);
-        const width = Math.max(1, baseW * scale);
-        const height = Math.max(1, baseH * scale);
+        const hitScale = Number(slot.getData("hitScale") ?? 1);
+        const width = Math.max(1, baseW * hitScale);
+        const height = Math.max(1, baseH * hitScale);
         const x = baseX + insetX + (baseW - width) / 2;
         const y = baseY + insetY + (baseH - height) / 2;
         slot.setPosition(x, y);
@@ -1749,7 +1824,8 @@ class MainScene extends Phaser.Scene {
       const centerX = bounds.x + bounds.width / 2;
       const centerY = bounds.y + bounds.height / 2;
       const distance = Math.hypot(pointer.x - centerX, pointer.y - centerY);
-      if (distance <= PC_SLOT_SNAP_RADIUS && distance < bestDistance) {
+      const snapRadius = PC_SLOT_SNAP_RADIUS * this.uiScale;
+      if (distance <= snapRadius && distance < bestDistance) {
         bestDistance = distance;
         best = {
           kind: slot.getData("kind") as "inv" | "skill",
@@ -1899,7 +1975,7 @@ class MainScene extends Phaser.Scene {
     if (changed) {
       event.preventDefault();
       const slots = this.pcCalibTarget === "inv" ? this.pcInventorySlots : this.pcSkillSlots;
-      this.layoutPcSlotGridLocal(grid, slots);
+      this.layoutPcSlotGridLocal(grid, slots, this.uiScale);
       this.updatePcDebugFrame();
       this.logPcUiCalibration(tag || "update", amount);
       if (DEBUG_PC_UI_CALIB) {
@@ -2250,39 +2326,35 @@ class MainScene extends Phaser.Scene {
   private createDetailPanel() {
     const { width, height } = this.scale;
     const uiDepth = 40;
-    const panelWidth = Math.min(360, width - 40);
-    const panelHeight = Math.min(420, height - 80);
     const panelX = width / 2;
     const panelY = height / 2;
-    const panelStroke = 0x000000;
+    const texture = this.textures.get(DETAIL_PANEL_BG_KEY);
+    const source = texture.getSourceImage() as { width?: number; height?: number } | undefined;
+    const textureWidth = source?.width ?? 1;
+    const textureHeight = source?.height ?? 1;
+    const maxScale = Math.min(
+      (width - 40) / textureWidth,
+      (height - 40) / textureHeight,
+      DETAIL_PANEL_SCALE * this.uiScale
+    );
+    const panelScale = Number.isFinite(maxScale) && maxScale > 0 ? maxScale : 1;
+    const panelWidth = textureWidth * panelScale;
+    const panelHeight = textureHeight * panelScale;
+    const panelLeft = panelX - panelWidth / 2;
+    const panelTop = panelY - panelHeight / 2;
+    const toPanelX = (x: number) => panelLeft + x * panelScale;
+    const toPanelY = (y: number) => panelTop + y * panelScale;
 
-    const bg = this.add
-      .rectangle(panelX, panelY, panelWidth, panelHeight, 0xf2f2f2, 0.95)
-      .setStrokeStyle(2, panelStroke)
-      .setScrollFactor(0);
+    const portraitLeft = toPanelX(DETAIL_PANEL_PROFILE_FRAME.x);
+    const portraitTop = toPanelY(DETAIL_PANEL_PROFILE_FRAME.y);
+    const portraitWidth = DETAIL_PANEL_PROFILE_FRAME.width * panelScale;
+    const portraitHeight = DETAIL_PANEL_PROFILE_FRAME.height * panelScale;
+    const portraitX = portraitLeft + portraitWidth / 2;
+    const portraitY = portraitTop + portraitHeight / 2;
 
-    const title = this.add
-      .text(panelX - panelWidth / 2 + 16, panelY - panelHeight / 2 + 12, "STUDENT ID", {
-        color: "#1a1b1f",
-        fontSize: "14px",
-        fontFamily: "Times New Roman"
-      })
-      .setScrollFactor(0);
-
-    const portraitX = panelX - panelWidth / 2 + 60;
-    const portraitY = panelY - panelHeight / 2 + 90;
-    const portraitFrame = this.add
-      .rectangle(portraitX, portraitY, PROFILE_FRAME_SIZE, PROFILE_FRAME_SIZE, 0xffffff, 1)
-      .setStrokeStyle(2, panelStroke)
-      .setScrollFactor(0);
     const portraitMask = this.add.graphics();
     portraitMask.fillStyle(0xffffff);
-    portraitMask.fillRect(
-      portraitX - PROFILE_FRAME_SIZE / 2,
-      portraitY - PROFILE_FRAME_SIZE / 2,
-      PROFILE_FRAME_SIZE,
-      PROFILE_FRAME_SIZE
-    );
+    portraitMask.fillRect(portraitLeft, portraitTop, portraitWidth, portraitHeight);
     const mask = portraitMask.createGeometryMask();
     portraitMask.setScrollFactor(0);
 
@@ -2290,16 +2362,29 @@ class MainScene extends Phaser.Scene {
     const profileAnim =
       mobtaroProfileKeys.length > 0 ? "mobtaro_profile" : "mobtaro_walk";
     this.detailSprite = this.add
-      .sprite(portraitX, portraitY + PROFILE_Y_OFFSET, profileKey)
+      .sprite(
+        portraitX,
+        portraitY + DETAIL_PANEL_PROFILE_CENTER_OFFSET_Y * panelScale,
+        profileKey
+      )
       .play(profileAnim);
     this.detailSprite.setScrollFactor(0);
     this.detailSprite.setMask(mask);
-    this.detailProfileCenter = { x: portraitX, y: portraitY };
+    this.detailProfileCenter = {
+      x: portraitX,
+      y: portraitY + DETAIL_PANEL_PROFILE_CENTER_OFFSET_Y * panelScale
+    };
+    this.detailProfileFrame = { width: portraitWidth, height: portraitHeight };
     this.applyProfileScale(this.detailSprite);
 
-    const infoX = panelX - panelWidth / 2 + 16;
-    const infoStartY = portraitY + PROFILE_FRAME_SIZE / 2 + 10;
-    const infoLineHeight = 16;
+    const bg = this.add
+      .image(panelX, panelY, DETAIL_PANEL_BG_KEY)
+      .setScale(panelScale)
+      .setScrollFactor(0);
+
+    const infoX = toPanelX(DETAIL_PANEL_INFO_X);
+    const infoStartY = toPanelY(DETAIL_PANEL_INFO_START_Y);
+    const infoLineHeight = DETAIL_PANEL_INFO_LINE_HEIGHT * panelScale;
     this.detailLevelText = this.add
       .text(infoX, infoStartY, "LV: 1", {
         color: "#1a1b1f",
@@ -2322,79 +2407,130 @@ class MainScene extends Phaser.Scene {
       })
       .setScrollFactor(0);
     this.detailStatPoints = statPointText;
+    const detailOverlays: Phaser.GameObjects.GameObject[] = [];
 
-    const statsStartX = panelX - panelWidth / 2 + 140;
-    const statsStartY = panelY - panelHeight / 2 + 110;
-    const statRows = [
-      ["HP", "hp"],
-      ["SP", "sp"],
-      ["ATK", "atk"],
-      ["DEF", "def"],
-      ["LUCK", "luck"],
-      ["MOVE SPD", "moveSpeed"],
-      ["RANGE", "range"],
-      ["ATK SPD", "atkSpeed"]
-    ];
-    statRows.forEach((row, index) => {
-      const [label, key] = row;
-      const y = statsStartY + index * 32;
+    DETAIL_PANEL_STAT_ROWS.forEach((row) => {
+      const y = toPanelY(row.y);
+      const label = row.label;
+      const key = row.key;
+      const heightAdjust = key === "atk" ? -6 * panelScale : 0;
       const nameText = this.add
-        .text(statsStartX, y, label, {
+        .text(toPanelX(DETAIL_PANEL_STAT_LABEL_X), y, label, {
           color: "#1a1b1f",
           fontSize: "12px",
           fontFamily: "Times New Roman"
         })
         .setScrollFactor(0);
       const valueText = this.add
-        .text(statsStartX + 60, y, "-", {
+        .text(toPanelX(DETAIL_PANEL_STAT_VALUE_X), y, "-", {
           color: "#1a1b1f",
           fontSize: "12px",
           fontFamily: "Times New Roman"
         })
         .setScrollFactor(0);
-        const plusBox = this.add
-          .rectangle(statsStartX + 110, y + 6, 18, 18, 0xffffff, 1)
-          .setStrokeStyle(1, panelStroke)
-          .setScrollFactor(0)
-          .setInteractive({ useHandCursor: true });
-        const plusLabel = this.add
-          .text(statsStartX + 110, y + 6, "+1", {
-            color: "#1a1b1f",
-            fontSize: "10px",
-            fontFamily: "Times New Roman"
-          })
-          .setOrigin(0.5)
-          .setScrollFactor(0);
-        const plusFiveBox = this.add
-          .rectangle(statsStartX + 134, y + 6, 22, 18, 0xffffff, 1)
-          .setStrokeStyle(1, panelStroke)
-          .setScrollFactor(0)
-          .setInteractive({ useHandCursor: true });
-        const plusFiveLabel = this.add
-          .text(statsStartX + 134, y + 6, "+5", {
-            color: "#1a1b1f",
-            fontSize: "10px",
-            fontFamily: "Times New Roman"
-          })
-          .setOrigin(0.5)
-          .setScrollFactor(0);
-        plusBox.on("pointerdown", () => this.sendAssignStat(key, 1));
-        plusFiveBox.on("pointerdown", () => this.sendAssignStat(key, 5));
-        this.detailFields.set(key, valueText);
-        this.detailPlusButtons.set(key, plusBox);
-        this.detailPlusButtonsFive.set(key, plusFiveBox);
-        this.detailFields.set(`${key}-label`, nameText);
-        this.detailPlusLabels.set(key, plusLabel);
-        this.detailPlusLabelsFive.set(key, plusFiveLabel);
+      const plusBox = this.add
+        .rectangle(
+          toPanelX(DETAIL_PANEL_STAT_BUTTON_X) +
+            DETAIL_PANEL_STAT_BUTTON_OFFSET_X * panelScale -
+            DETAIL_PANEL_STAT_BUTTON_WIDTH * panelScale * 0.25,
+          y + panelScale * 4 + DETAIL_PANEL_STAT_BUTTON_OFFSET_Y * panelScale,
+          DETAIL_PANEL_STAT_BUTTON_WIDTH * panelScale * 0.5,
+          DETAIL_PANEL_STAT_BUTTON_HEIGHT * panelScale * 2 + 15 + heightAdjust,
+          0xffffff,
+          0
+        )
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true });
+      const plusLabel = this.add
+        .text(plusBox.x, plusBox.y, "", {
+          color: "#1a1b1f",
+          fontSize: "10px",
+          fontFamily: "Times New Roman"
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0);
+      const plusFiveBox = this.add
+        .rectangle(
+          toPanelX(DETAIL_PANEL_STAT_BUTTON_X) +
+            DETAIL_PANEL_STAT_BUTTON_OFFSET_X * panelScale +
+            DETAIL_PANEL_STAT_BUTTON_WIDTH * panelScale * 0.25,
+          y + panelScale * 4 + DETAIL_PANEL_STAT_BUTTON_OFFSET_Y * panelScale,
+          DETAIL_PANEL_STAT_BUTTON_WIDTH * panelScale * 0.5,
+          DETAIL_PANEL_STAT_BUTTON_HEIGHT * panelScale * 2 + 15 + heightAdjust,
+          0xffffff,
+          0
+        )
+        .setScrollFactor(0)
+        .setInteractive({ useHandCursor: true });
+      const b1 = plusBox.getBounds();
+      const b5 = plusFiveBox.getBounds();
+      const plusCenterX = b1.centerX;
+      const plusFiveCenterX = b5.centerX;
+      const plusHalfW = b1.width * 0.5;
+      const plusFiveHalfW = b5.width * 0.5;
+      const overlayMidX = (plusCenterX + plusFiveCenterX) / 2;
+      const overlayExtendRight = 10 * panelScale;
+      const plusOverlayWidth = plusHalfW;
+      const plusFiveOverlayWidth = plusFiveHalfW;
+      const plusOverlayLeft = plusCenterX;
+      const plusOverlayRight = overlayMidX + overlayExtendRight;
+      const plusOverlayWidthAdjusted = Math.max(1, plusOverlayRight - plusOverlayLeft);
+      const overlayOffsetX = 13 * panelScale;
+      const overlayOffsetY = 30 * panelScale;
+      const overlayHeight = plusBox.displayHeight * 0.5 * 1.2 + heightAdjust * 0.5;
+      const overlayCenterY = plusBox.y - plusBox.displayHeight * 0.25;
+      const overlayHeightFive = plusFiveBox.displayHeight * 0.5 * 1.2 + heightAdjust * 0.5;
+      const overlayCenterYFive = plusFiveBox.y - plusFiveBox.displayHeight * 0.25;
+      const greenOverlayBaseWidth = plusOverlayWidthAdjusted * 1.2;
+      const greenOverlayShrink = 6 * panelScale;
+      const greenOverlayWidth = greenOverlayBaseWidth - greenOverlayShrink;
+      const greenOverlayLeft = overlayMidX - greenOverlayBaseWidth + overlayOffsetX;
+      const redOverlayWidth = plusFiveOverlayWidth * 1.2;
+      const plusBoxOverlay = this.add
+        .rectangle(
+          greenOverlayLeft + greenOverlayWidth / 2,
+          overlayCenterY + overlayOffsetY,
+          greenOverlayWidth,
+          overlayHeight,
+          0x66ff66,
+          0.25
+        )
+        .setScrollFactor(0);
+      const plusFiveBoxOverlay = this.add
+        .rectangle(
+          overlayMidX + redOverlayWidth / 2 + overlayOffsetX,
+          overlayCenterYFive + overlayOffsetY,
+          redOverlayWidth,
+          overlayHeightFive,
+          0xff6666,
+          0.25
+        )
+        .setScrollFactor(0);
+      const plusFiveLabel = this.add
+        .text(plusFiveBox.x, plusFiveBox.y, "", {
+          color: "#1a1b1f",
+          fontSize: "10px",
+          fontFamily: "Times New Roman"
+        })
+        .setOrigin(0.5)
+        .setScrollFactor(0);
+      plusBox.on("pointerdown", () => this.sendAssignStat(key, 1));
+      plusFiveBox.on("pointerdown", () => this.sendAssignStat(key, 5));
+      this.detailFields.set(key, valueText);
+      this.detailPlusButtons.set(key, plusBox);
+      this.detailPlusButtonsFive.set(key, plusFiveBox);
+      this.detailFields.set(`${key}-label`, nameText);
+      this.detailPlusLabels.set(key, plusLabel);
+      this.detailPlusLabelsFive.set(key, plusFiveLabel);
+      detailOverlays.push(plusBoxOverlay, plusFiveBoxOverlay);
     });
 
     const closeBox = this.add
-      .rectangle(panelX + panelWidth / 2 - 20, panelY - panelHeight / 2 + 18, 22, 22, 0xffffff, 1)
-      .setStrokeStyle(1, panelStroke)
+      .rectangle(panelLeft + panelWidth - 38 * panelScale, panelTop + 34 * panelScale, 30 * panelScale, 30 * panelScale, 0xffffff, 0)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const closeLabel = this.add
-      .text(panelX + panelWidth / 2 - 20, panelY - panelHeight / 2 + 18, "X", {
+      .text(closeBox.x, closeBox.y, "", {
         color: "#1a1b1f",
         fontSize: "12px",
         fontFamily: "Times New Roman"
@@ -2403,17 +2539,17 @@ class MainScene extends Phaser.Scene {
       .setScrollFactor(0);
     closeBox.on("pointerdown", () => this.toggleDetailPanel(false));
 
+    portraitMask.setVisible(false);
     this.detailPanel = this.add.container(0, 0, [
+      this.detailSprite,
+      portraitMask,
       bg,
-      title,
+      ...detailOverlays,
       this.detailLevelText,
       this.detailXpText,
-      portraitFrame,
-      portraitMask,
-      this.detailSprite,
+      statPointText,
       closeBox,
-      closeLabel,
-      statPointText
+      closeLabel
     ]);
     this.detailFields.forEach((value) => {
       this.detailPanel?.add(value);
@@ -2455,6 +2591,7 @@ class MainScene extends Phaser.Scene {
     this.detailLevelText = undefined;
     this.detailXpText = undefined;
     this.detailProfileCenter = undefined;
+    this.detailProfileFrame = undefined;
     this.detailFields.clear();
     this.detailPlusButtons.clear();
     this.detailPlusLabels.clear();
@@ -2462,10 +2599,32 @@ class MainScene extends Phaser.Scene {
     this.detailPlusLabelsFive.clear();
   }
 
+  private rebuildOptionPanelForResize() {
+    if (!this.optionPanel) {
+      return;
+    }
+    const wasVisible = this.optionPanel.visible;
+    this.destroyOptionPanel();
+    this.createOptionPanel();
+    this.optionPanel?.setVisible(wasVisible);
+  }
+
+  private destroyOptionPanel() {
+    this.optionPanel?.destroy(true);
+    this.optionPanel = undefined;
+    this.optionVolumeText = undefined;
+    this.optionSeText = undefined;
+    this.optionButtons = [];
+    this.optionButtonLabels = [];
+  }
+
   private rebuildMobileUiForResize() {
     this.destroyMobileUi();
+    this.uiScale = this.resolveUiScale(this.scale.width, this.scale.height);
     this.createMobileUi();
     this.layoutMobileStick();
+    this.layoutMainPanel(this.scale.width, this.scale.height);
+    this.rebuildOptionPanelForResize();
   }
 
   private scheduleMobileUiResize(width: number, height: number) {
@@ -2538,7 +2697,7 @@ class MainScene extends Phaser.Scene {
   }
 
   private applyProfileScale(sprite: Phaser.GameObjects.Sprite) {
-    if (!this.detailProfileCenter) {
+    if (!this.detailProfileCenter || !this.detailProfileFrame) {
       return;
     }
     const texture = this.textures.get(sprite.texture.key);
@@ -2548,23 +2707,60 @@ class MainScene extends Phaser.Scene {
     if (texWidth <= 0 || texHeight <= 0) {
       return;
     }
-    const scale = Math.max(
-      PROFILE_FRAME_SIZE / texWidth,
-      PROFILE_FRAME_SIZE / texHeight
-    );
+    const scale =
+      Math.max(
+        this.detailProfileFrame.width / texWidth,
+        this.detailProfileFrame.height / texHeight
+      ) * DETAIL_PANEL_PROFILE_SCALE;
     sprite.setScale(scale);
     const scaledHalfHeight = (texHeight * scale) / 2;
-    const frameHalf = PROFILE_FRAME_SIZE / 2;
+    const frameHalf = this.detailProfileFrame.height / 2;
     const minY = this.detailProfileCenter.y - (scaledHalfHeight - frameHalf);
     const maxY = this.detailProfileCenter.y + (scaledHalfHeight - frameHalf);
     sprite.y = clamp(sprite.y, minY, maxY);
   }
 
+  private applyPcRightUiScale() {
+    if (!this.pcInventoryPanel || !this.pcSkillPanel) {
+      return;
+    }
+    const scale = this.uiScale;
+    this.pcInventoryPanel.setScale(scale);
+    this.pcSkillPanel.setScale(scale);
+    this.pcInventoryBgZone?.setSize(
+      this.pcInventoryPanel.displayWidth,
+      this.pcInventoryPanel.displayHeight
+    );
+    this.pcSkillBgZone?.setSize(
+      this.pcSkillPanel.displayWidth,
+      this.pcSkillPanel.displayHeight
+    );
+    this.pcInventoryBgZone?.input?.hitArea?.setTo(
+      0,
+      0,
+      this.pcInventoryPanel.displayWidth,
+      this.pcInventoryPanel.displayHeight
+    );
+    this.pcSkillBgZone?.input?.hitArea?.setTo(
+      0,
+      0,
+      this.pcSkillPanel.displayWidth,
+      this.pcSkillPanel.displayHeight
+    );
+    if (this.pcInventorySlots.length > 0) {
+      this.layoutPcSlotGridLocal(INV_GRID, this.pcInventorySlots, scale);
+    }
+    if (this.pcSkillSlots.length > 0) {
+      this.layoutPcSlotGridLocal(SKILL_GRID, this.pcSkillSlots, scale);
+    }
+  }
+
   private createOptionPanel() {
     const { width, height } = this.scale;
     const uiDepth = 50;
-    const panelWidth = 220;
-    const panelHeight = 150;
+    const uiScale = this.uiScale;
+    const panelWidth = 220 * uiScale;
+    const panelHeight = 150 * uiScale;
     const panelX = width / 2;
     const panelY = height / 2;
     const panelStroke = 0x000000;
@@ -2573,84 +2769,84 @@ class MainScene extends Phaser.Scene {
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0);
     const title = this.add
-      .text(panelX - panelWidth / 2 + 12, panelY - panelHeight / 2 + 10, "OPTION", {
+      .text(panelX - panelWidth / 2 + 12 * uiScale, panelY - panelHeight / 2 + 10 * uiScale, "OPTION", {
         color: "#1a1b1f",
-        fontSize: "12px",
+        fontSize: `${Math.round(12 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setScrollFactor(0);
     this.optionVolumeText = this.add
       .text(
-        panelX - panelWidth / 2 + 12,
-        panelY - 4,
+        panelX - panelWidth / 2 + 12 * uiScale,
+        panelY - 4 * uiScale,
         `BGM: ${Math.round(this.bgmVolume * 100)}%`,
         {
         color: "#1a1b1f",
-        fontSize: "11px",
+        fontSize: `${Math.round(11 * uiScale)}px`,
         fontFamily: "Times New Roman"
         }
       )
       .setScrollFactor(0);
     this.optionSeText = this.add
       .text(
-        panelX - panelWidth / 2 + 12,
-        panelY + 18,
+        panelX - panelWidth / 2 + 12 * uiScale,
+        panelY + 18 * uiScale,
         `SE: ${Math.round(this.seVolume * 100)}%`,
         {
         color: "#1a1b1f",
-        fontSize: "11px",
+        fontSize: `${Math.round(11 * uiScale)}px`,
         fontFamily: "Times New Roman"
         }
       )
       .setScrollFactor(0);
     const minus = this.add
-      .rectangle(panelX + 40, panelY - 6, 24, 20, 0xffffff, 1)
+      .rectangle(panelX + 40 * uiScale, panelY - 6 * uiScale, 24 * uiScale, 20 * uiScale, 0xffffff, 1)
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const minusLabel = this.add
-      .text(panelX + 40, panelY - 6, "-", {
+      .text(panelX + 40 * uiScale, panelY - 6 * uiScale, "-", {
         color: "#1a1b1f",
-        fontSize: "12px",
+        fontSize: `${Math.round(12 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
       .setScrollFactor(0);
     const plus = this.add
-      .rectangle(panelX + 70, panelY - 6, 24, 20, 0xffffff, 1)
+      .rectangle(panelX + 70 * uiScale, panelY - 6 * uiScale, 24 * uiScale, 20 * uiScale, 0xffffff, 1)
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const plusLabel = this.add
-      .text(panelX + 70, panelY - 6, "+", {
+      .text(panelX + 70 * uiScale, panelY - 6 * uiScale, "+", {
         color: "#1a1b1f",
-        fontSize: "12px",
+        fontSize: `${Math.round(12 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
       .setScrollFactor(0);
     const seMinus = this.add
-      .rectangle(panelX + 40, panelY + 16, 24, 20, 0xffffff, 1)
+      .rectangle(panelX + 40 * uiScale, panelY + 16 * uiScale, 24 * uiScale, 20 * uiScale, 0xffffff, 1)
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const seMinusLabel = this.add
-      .text(panelX + 40, panelY + 16, "-", {
+      .text(panelX + 40 * uiScale, panelY + 16 * uiScale, "-", {
         color: "#1a1b1f",
-        fontSize: "12px",
+        fontSize: `${Math.round(12 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
       .setScrollFactor(0);
     const sePlus = this.add
-      .rectangle(panelX + 70, panelY + 16, 24, 20, 0xffffff, 1)
+      .rectangle(panelX + 70 * uiScale, panelY + 16 * uiScale, 24 * uiScale, 20 * uiScale, 0xffffff, 1)
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const sePlusLabel = this.add
-      .text(panelX + 70, panelY + 16, "+", {
+      .text(panelX + 70 * uiScale, panelY + 16 * uiScale, "+", {
         color: "#1a1b1f",
-        fontSize: "12px",
+        fontSize: `${Math.round(12 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
@@ -2663,14 +2859,14 @@ class MainScene extends Phaser.Scene {
     this.optionButtonLabels = [minusLabel, plusLabel, seMinusLabel, sePlusLabel];
 
     const closeBox = this.add
-      .rectangle(panelX + panelWidth / 2 - 16, panelY - panelHeight / 2 + 14, 18, 18, 0xffffff, 1)
+      .rectangle(panelX + panelWidth / 2 - 16 * uiScale, panelY - panelHeight / 2 + 14 * uiScale, 18 * uiScale, 18 * uiScale, 0xffffff, 1)
       .setStrokeStyle(1, panelStroke)
       .setScrollFactor(0)
       .setInteractive({ useHandCursor: true });
     const closeLabel = this.add
-      .text(panelX + panelWidth / 2 - 16, panelY - panelHeight / 2 + 14, "X", {
+      .text(panelX + panelWidth / 2 - 16 * uiScale, panelY - panelHeight / 2 + 14 * uiScale, "X", {
         color: "#1a1b1f",
-        fontSize: "11px",
+        fontSize: `${Math.round(11 * uiScale)}px`,
         fontFamily: "Times New Roman"
       })
       .setOrigin(0.5)
@@ -2704,6 +2900,11 @@ class MainScene extends Phaser.Scene {
     }
     const next = force ?? !this.optionPanel.visible;
     this.optionPanel.setVisible(next);
+  }
+
+  private resolveUiScale(width: number, height: number) {
+    const scale = Math.min(width / UI_BASE_WIDTH, height / UI_BASE_HEIGHT);
+    return clamp(scale, UI_MIN_SCALE, UI_MAX_SCALE);
   }
 
   private setupBgmPlayback() {
